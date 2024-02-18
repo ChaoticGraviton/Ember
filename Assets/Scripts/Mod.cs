@@ -44,7 +44,7 @@ namespace Assets.Scripts
                         isUserApproved = approvedUsers[item] == Game.Instance.Settings.UserName;
                         if (isUserApproved)
                         {
-                            Debug.Log("User Approved");
+                            Debug.Log("Ember User Approved");
                             break;
                         }
                     }
@@ -64,12 +64,12 @@ namespace Assets.Scripts
 
         private void OnDragPartSelectionStarted()
         {
-            if (EmberDesignerButton.flyoutOpened) EmberDesignerButton.emberFlyout.flyout.IsHidden = true;
+            if (EmberDesignerButton.FlyoutOpened) EmberDesignerButton.emberFlyout.flyout.IsHidden = true;
         }
 
         private void OnDragPartSelectionEnded()
         {
-            if (EmberDesignerButton.flyoutOpened) EmberDesignerButton.emberFlyout.flyout.IsHidden = false;
+            if (EmberDesignerButton.FlyoutOpened) EmberDesignerButton.emberFlyout.flyout.IsHidden = false;
         }
     }
     public class PlumeData

@@ -18,7 +18,7 @@ namespace Assets.Scripts
 
         private static ModSettings _instance;
 
-        private static XmlSerializer _xmlSerializer = new XmlSerializer(typeof(PlumeData));
+        private static XmlSerializer _xmlSerializer = new(typeof(PlumeData));
 
         private static FileStream _fileStream;
 
