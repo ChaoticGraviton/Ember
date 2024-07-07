@@ -23,7 +23,7 @@ namespace Assets.Scripts
 
     // TODO */
 
-    public class EmberFlyoutScript : MonoBehaviour
+    public class EmberFlyoutScriptOld : MonoBehaviour
     {
         public FlyoutScript flyout = new();
         public static XmlLayout XmlLayout { get; private set; }

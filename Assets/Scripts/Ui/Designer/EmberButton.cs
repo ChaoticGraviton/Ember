@@ -18,7 +18,7 @@ public static class EmberDesignerButton
 {
     private static XmlElement emberButton;
 
-    public static EmberFlyoutScript emberFlyout;
+    public static EmberFlyoutScriptOld emberFlyout;
     private static DesignerScript _designer => (DesignerScript)Game.Instance.Designer;
     public static bool FlyoutOpened => emberFlyout != null;
 
@@ -30,6 +30,7 @@ public static class EmberDesignerButton
 
     public static void Initialize()
     {
+        return;
         var userInterface = Game.Instance.UserInterface;
         userInterface.AddBuildUserInterfaceXmlAction(
             UserInterfaceIds.Design.DesignerUi,
@@ -55,6 +56,7 @@ public static class EmberDesignerButton
 
     private static void OnBuildDesignerUI(BuildUserInterfaceXmlRequest request)
     {
+        /*
         _designer.DesignerUi.SelectedFlyoutChanged += SelectedFlyoutChanged;
 
         var nameSpace = XmlLayoutConstants.XmlNamespace;
@@ -78,6 +80,7 @@ public static class EmberDesignerButton
             emberButton = (XmlElement)xmlLayoutController.XmlLayout.GetElementById(_buttonId);
             emberButton.AddOnClickEvent(OnButtonClicked);
         });
+        */
     }
 
     private static void SelectedFlyoutChanged(IFlyout flyout)
@@ -122,7 +125,7 @@ public static class EmberDesignerButton
     public static void OpenFlyout()
     {
         var ui = Game.Instance.UserInterface;
-        emberFlyout = ui.BuildUserInterfaceFromResource<EmberFlyoutScript>("Advanced Plume Editor/EmberFlyout", (script, controller) => script.OnLayoutRebuilt(controller));
+        emberFlyout = ui.BuildUserInterfaceFromResource<EmberFlyoutScriptOld>("Advanced Plume Editor/EmberFlyout", (script, controller) => script.OnLayoutRebuilt(controller));
         emberButton.AddClass("toggle-button-toggled");
         _designer.DesignerUi.SelectedFlyout = emberFlyout.flyout;
         emberFlyout.Open();
