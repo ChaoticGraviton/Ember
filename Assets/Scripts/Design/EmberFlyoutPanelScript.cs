@@ -4,15 +4,13 @@ using ModApi.Craft.Parts;
 using ModApi.Design;
 using ModApi.Math;
 using ModApi.Ui;
-using Ookii.Dialogs;
-using Rewired;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Xml.Serialization;
 using TMPro;
 using UI.Xml;
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 namespace Assets.Scripts.Design
@@ -29,6 +27,7 @@ namespace Assets.Scripts.Design
         CraftPerformanceAnalysis performanceAnalizer;
         public static RocketEngineScript selectedRocketEngine;
         private XmlSerializer _xmlSerializer;
+        private FileStream _fileStream;
         private readonly List<string> textFieldList = new() { "_exhaustScale", "_exhaustOffset", "_exhaustRimShade", "_exhaustShockDirectionOffset", "_exhaustShockIntensity", "_exhaustSootIntensity", "_exhaustSootLength", "_smokeSpeedOverride", "_exhaustGlobalIntensity", "_exhaustTextureStrength", "_nozzleDiscStrength" };
         private readonly Dictionary<string, string> fieldUpdateReferences = new() { { "Base", "_exhaustColor" }, { "Expanded", "_exhaustColorExpanded" }, { "Tip", "_exhaustColorTip" }, { "Flame", "_exhaustColorFlame" }, { "Shock", "_exhaustColorShock" }, { "Soot", "_exhaustColorSoot" }, { "Smoke", "_smokeColor" } };
         private Dictionary<string, Color> colorReferences = new() { };
@@ -76,6 +75,11 @@ namespace Assets.Scripts.Design
                 SetActiveForSelectedEngine(true);
                 UpdateFlyoutDisplayValues();
             }
+            else
+            {
+                SetActiveForSelectedEngine(false);
+            }
+            UpdateAltitudeSliderDisplay();
         }
 
         private void OnFlyoutClosing(IFlyout flyout)
@@ -351,9 +355,141 @@ namespace Assets.Scripts.Design
             else selectedRocketEngine.Data.Script.InitializeExhaust();
         }
 
-        internal void ImportPreset(PlumePresetData.PlumeData plumeData)
+        private void LoadPresetButtonClicked()
         {
-            throw new NotImplementedException();
+            LoadPresetUI presetManager = new LoadPresetUI(Mod.Instance.presetPath);
+            Game.Instance.UserInterface.CreateListView(presetManager);
+        }
+
+        private void SavePresetButtonClicked()
+        {
+            InputDialogScript inputDialogScript = Game.Instance.UserInterface.CreateInputDialog();
+            inputDialogScript.InputPlaceholderText = "Preset Name";
+            inputDialogScript.MessageText = "Save Preset";
+            inputDialogScript.OkayButtonText = "SAVE";
+            inputDialogScript.CancelButtonText = "CANCEL";
+            inputDialogScript.MaxLength = 255;
+            inputDialogScript.InvalidCharacters.AddRange(Path.GetInvalidFileNameChars());
+            inputDialogScript.OkayClicked += OnSavePlumePreset;
+        }
+
+        private void OnSavePlumePreset(InputDialogScript inputDialog)
+        {
+            inputDialog.Close();
+            PlumePresetData.PlumeData plumeData = new()
+            {
+                PresetName = inputDialog.InputText,
+                Author = (!string.IsNullOrEmpty(Game.Instance.Settings.UserName)) ? Game.Instance.Settings.UserName : "Unknown"
+            };
+            plumeData.plumeMain = new PlumePresetData.PlumeMain()
+            {
+                MainColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColor),
+                ExpandedColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorExpanded),
+                TipColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorTip),
+                FlameColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorFlame),
+                GloabalIntensity = selectedRocketEngine.Data.ExhaustGlobalIntensity == -1f ? selectedRocketEngine.FuelSource.FuelType.GlobalIntensity : selectedRocketEngine.Data.ExhaustGlobalIntensity,
+                TextureIntensity = selectedRocketEngine.Data.ExhaustTextureStrength,
+                ExhaustScale = selectedRocketEngine.Data.ExhaustScale,
+                ExhaustOffset = selectedRocketEngine.Data.ExhaustOffset,
+                RimShade = selectedRocketEngine.Data.ExhaustRimShade == -1f ? selectedRocketEngine.FuelSource.FuelType.RimShade : selectedRocketEngine.Data.ExhaustRimShade,
+                DiscIntensity = selectedRocketEngine.Data.NozzleDiscStrength,
+                ExpansionRangeX = selectedRocketEngine.Data.ExhaustExpansionRange[0],
+                ExpansionRangeY = selectedRocketEngine.Data.ExhaustExpansionRange[1]
+            };
+            plumeData.plumeDiamonds = new PlumePresetData.PlumeDiamonds()
+            {
+                DiamondColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorShock),
+                DiamondOffset = selectedRocketEngine.Data.ExhaustShockDirectionOffset,
+                DiamondIntensity = selectedRocketEngine.Data.ExhaustShockIntensity == -1f ? selectedRocketEngine.FuelSource.FuelType.ShockIntensity : selectedRocketEngine.Data.ExhaustShockIntensity
+            };
+            plumeData.plumeSoot = new PlumePresetData.PlumeSoot()
+            {
+                SootColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorSoot),
+                SootIntensity = selectedRocketEngine.Data.ExhaustSootIntensity,
+                SootLength = selectedRocketEngine.Data.ExhaustSootLength
+            };
+            plumeData.engineSmoke = new PlumePresetData.EngineSmoke()
+            {
+                HasSmoke = selectedRocketEngine.Data.HasSmoke,
+                SmokeColor = ColorToHexAlpha(selectedRocketEngine.Data.SmokeColor),
+                SmokeSpeed = selectedRocketEngine.Data.SmokeSpeed,
+            };
+            var newPresetFilePath = inputDialog.InputText + ".xml";
+            if (File.Exists(Mod.Instance.presetPath + newPresetFilePath))
+            {
+                ModApi.Ui.MessageDialogScript verifyOverwriteDialog = Game.Instance.UserInterface.CreateMessageDialog(MessageDialogType.OkayCancel);
+                verifyOverwriteDialog.MessageText = "A preset file already exists with the name: '" + inputDialog.InputText + "'<br> Would you like to overwrite this preset?";
+                verifyOverwriteDialog.CancelButtonText = "CANCEL";
+                verifyOverwriteDialog.OkayButtonText = "OVERWRITE";
+                verifyOverwriteDialog.UseDangerButtonStyle = true;
+                verifyOverwriteDialog.OkayClicked += delegate (ModApi.Ui.MessageDialogScript dialog)
+                {
+                    dialog.Close();
+                    SavePresetFile(newPresetFilePath, plumeData);
+                };
+            }
+            else SavePresetFile(newPresetFilePath, plumeData);
+        }
+
+        private void SavePresetFile(string presetFilePath, PlumePresetData.PlumeData plumeData)
+        {
+            _fileStream = new FileStream(Mod.Instance.presetPath + presetFilePath, FileMode.Create);
+            _xmlSerializer.Serialize(_fileStream, plumeData);
+            _fileStream.Close();
+            Game.Instance.Designer.DesignerUi.ShowMessage(File.Exists(Mod.Instance.presetPath + presetFilePath) ? "Plume preset saved at: " + Mod.Instance.presetPath + presetFilePath : "<color=#e7515a>Plume preset failed to save");
+        }
+
+        public void ImportPreset(PlumePresetData.PlumeData plumeData)
+        {
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColor").SetValue(plumeData.plumeMain.MainColor);
+            // Accounting for old presets that do not contain ExpandedColor
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorExpanded").SetValue(plumeData.plumeMain?.ExpandedColor ?? plumeData.plumeMain.MainColor);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorTip").SetValue(plumeData.plumeMain.TipColor);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorFlame").SetValue(plumeData.plumeMain.FlameColor);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustGlobalIntensity").SetValue(plumeData.plumeMain.GloabalIntensity);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustTextureStrength").SetValue(plumeData.plumeMain.TextureIntensity);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustScale").SetValue(plumeData.plumeMain.ExhaustScale);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustOffset").SetValue(plumeData.plumeMain.ExhaustOffset);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustRimShade").SetValue(plumeData.plumeMain.RimShade);
+            Traverse.Create(selectedRocketEngine.Data).Field("_nozzleDiscStrength").SetValue(plumeData.plumeMain.DiscIntensity);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustExpansionRange").SetValue(new Vector2(plumeData.plumeMain.ExpansionRangeX, plumeData.plumeMain.ExpansionRangeY));
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorShock").SetValue(plumeData.plumeDiamonds.DiamondColor);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockDirectionOffset").SetValue(plumeData.plumeDiamonds.DiamondOffset);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockIntensity").SetValue(plumeData.plumeDiamonds.DiamondIntensity);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorSoot").SetValue(plumeData.plumeSoot.SootColor);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootIntensity").SetValue(plumeData.plumeSoot.SootIntensity);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootLength").SetValue(plumeData.plumeSoot.SootLength);
+            Traverse.Create(selectedRocketEngine.Data).Field("_hasSmoke").SetValue(plumeData.engineSmoke.HasSmoke);
+            Traverse.Create(selectedRocketEngine.Data).Field("_smokeColor").SetValue(plumeData.engineSmoke.SmokeColor);
+            Traverse.Create(selectedRocketEngine.Data).Field("_smokeSpeedOverride").SetValue(plumeData.engineSmoke.SmokeSpeed);
+            UpdateFlyoutDisplayValues();
+            UpdateSymmetricRocketEngines();
+        }
+
+        public void ResetPlume()
+        {
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColor").SetValue("Default");
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorExpanded").SetValue("Default");
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorTip").SetValue("Default");
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorFlame").SetValue("Default");
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustGlobalIntensity").SetValue(-1);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustTextureStrength").SetValue(1);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustScale").SetValue(1);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustOffset").SetValue(0);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustRimShade").SetValue(-1);
+            Traverse.Create(selectedRocketEngine.Data).Field("_nozzleDiscStrength").SetValue(5);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustExpansionRange").SetValue(new Vector2(-1, -1));
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorShock").SetValue("Default");
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockDirectionOffset").SetValue(0);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockIntensity").SetValue(-1);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorSoot").SetValue("Default");
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootIntensity").SetValue(0);
+            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootLength").SetValue(0);
+            Traverse.Create(selectedRocketEngine.Data).Field("_hasSmoke").SetValue(true);
+            Traverse.Create(selectedRocketEngine.Data).Field("_smokeColor").SetValue("Default");
+            Traverse.Create(selectedRocketEngine.Data).Field("_smokeSpeedOverride").SetValue(1);
+            UpdateFlyoutDisplayValues();
+            UpdateSymmetricRocketEngines();
         }
     }
 }

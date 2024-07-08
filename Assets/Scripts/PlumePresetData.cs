@@ -31,6 +31,8 @@ public class PlumePresetData
         [XmlAttribute]
         public string MainColor;
         [XmlAttribute]
+        public string ExpandedColor;
+        [XmlAttribute]
         public string TipColor;
         [XmlAttribute]
         public string FlameColor;

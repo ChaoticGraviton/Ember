@@ -15,17 +15,16 @@ namespace HarmonyLib
     {
         [HarmonyPatch("Start")]
         [HarmonyPostfix]
-        public static void Postfix(DesignerScript __instance)
-        {
-            Traverse.Create(__instance).Field("_cycleFlyouts").GetValue<List<IFlyout>>().Add(Mod.Instance.EmberFlyout);
-        }
+        public static void StartPostfix(DesignerScript __instance) => __instance._cycleFlyouts.Add(Mod.Instance.EmberFlyout);
     }
 
-    [HarmonyPatch(typeof(ExhaustSystemScript), "UpdateExhaust")]
+    [HarmonyPatch(typeof(ExhaustSystemScript))]
     class AdjustableThrottle
     {
         public static Slider adjustableThrottleSlider;
 
+        [HarmonyPatch("UpdateExhaust")]
+        [HarmonyPrefix]
         static bool Prefix(ref float throttle)
         {
             if (Game.InDesignerScene && adjustableThrottleSlider != null)

@@ -2,6 +2,7 @@ using Assets.Scripts.Craft.Parts.Modifiers.Propulsion;
 using HarmonyLib;
 using ModApi.Craft;
 using ModApi.Craft.Parts;
+using System;
 using System.Collections.Generic;
 
 namespace Assets.Scripts.Design.Staging
@@ -18,9 +19,22 @@ namespace Assets.Scripts.Design.Staging
             Mod.Instance.StagingEditorExhaustPreviewScript = this;
         }
 
-        public void OnOpened() => RefreshExhaustPreview();
+        public void OnOpened()
+        {
+            Game.Instance.Designer.CraftStructureChanged += OnCraftStructureChanged;
+            RefreshExhaustPreview();
+        }
 
-        public void OnClosed() => UpdateStageExhaustPreview(false);
+        public void OnClosed()
+        {
+            Game.Instance.Designer.CraftStructureChanged -= OnCraftStructureChanged;
+            UpdateStageExhaustPreview(false);
+        }
+
+        private void OnCraftStructureChanged()
+        {
+            RefreshExhaustPreview();
+        }
 
         internal void RefreshExhaustPreview()
         {

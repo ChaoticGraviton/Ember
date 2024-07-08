@@ -58,6 +58,7 @@ namespace Assets.Scripts
             plumeData.plumeMain = new PlumePresetData.PlumeMain()
             {
                 MainColor = ColorToHexAlpha(fuelType.ExhaustColor),
+                ExpandedColor = ColorToHexAlpha(fuelType.ExhaustColorExpanded),
                 TipColor = ColorToHexAlpha(fuelType.ExhaustColorTip),
                 FlameColor = ColorToHexAlpha(fuelType.ExhaustColorFlame),
                 GloabalIntensity = fuelType.GlobalIntensity,
