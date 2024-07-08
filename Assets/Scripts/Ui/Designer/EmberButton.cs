@@ -154,8 +154,7 @@ public static class EmberDesignerButton
                     if (tabButtonList[0].Panel.IsOpen)
                     {
                         UpdateStageEngineList();
-                        UnityEventDispatcher.Instance.ExecuteYield<WaitForEndOfFrame>(
-          () => UpdateStageExhaustPreview(true));
+                        UnityEventDispatcher.Instance.ExecuteYield<WaitForEndOfFrame>(() => UpdateStageExhaustPreview(true));
                     }
                 }
             }

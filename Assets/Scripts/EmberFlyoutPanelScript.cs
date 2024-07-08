@@ -4,6 +4,7 @@ using ModApi.Craft.Parts;
 using ModApi.Design;
 using ModApi.Math;
 using ModApi.Ui;
+using Ookii.Dialogs;
 using Rewired;
 using System;
 using System.Collections.Generic;
@@ -18,73 +19,87 @@ namespace Assets.Scripts.Design
 {
     public class EmberFlyoutPanelScript : DesignerFlyoutPanelScript
     {
-        public Slider throttleSlider = null;
-        private TextMeshProUGUI throttleDisplayValue;
+        XmlElement _content;
+        XmlElement _noEngine;
+        private IDesigner _designer;
+        public Slider throttleSlider;
         public Slider emberAltitudeSlider;
-        private bool smokeEnabled;
-        private bool sootEnabled;
-        private XmlSerializer _xmlSerializer;
+        private TextMeshProUGUI throttleDisplayValue;
+        private TextMeshProUGUI altitudeDisplayValue;
         CraftPerformanceAnalysis performanceAnalizer;
         public static RocketEngineScript selectedRocketEngine;
-        public bool EngineSelected => selectedRocketEngine != null;
+        private XmlSerializer _xmlSerializer;
         private readonly List<string> textFieldList = new() { "_exhaustScale", "_exhaustOffset", "_exhaustRimShade", "_exhaustShockDirectionOffset", "_exhaustShockIntensity", "_exhaustSootIntensity", "_exhaustSootLength", "_smokeSpeedOverride", "_exhaustGlobalIntensity", "_exhaustTextureStrength", "_nozzleDiscStrength" };
         private readonly Dictionary<string, string> fieldUpdateReferences = new() { { "Base", "_exhaustColor" }, { "Expanded", "_exhaustColorExpanded" }, { "Tip", "_exhaustColorTip" }, { "Flame", "_exhaustColorFlame" }, { "Shock", "_exhaustColorShock" }, { "Soot", "_exhaustColorSoot" }, { "Smoke", "_smokeColor" } };
         private Dictionary<string, Color> colorReferences = new() { };
-        
+        public bool hasEngineSelected => selectedRocketEngine != null;
+        private bool smokeEnabled;
+        private bool sootEnabled;
+
         public override void Initialize(DesignerUiScript designerUi)
         {
-            Game.Instance.Designer.SelectedPartChanged += OnSelectedPartChanged;
+            Debug.Log("Ember Initalize");
             base.Initialize(designerUi);
             Mod.Instance.EmberFlyout = Flyout;
-            
+            Mod.Instance.EmberFlyoutScript = this;
+            _designer = designerUi.Designer;
+            _designer.SelectedPartChanged += OnSelectedPartChanged;
+            _xmlSerializer = new XmlSerializer(typeof(PlumePresetData.PlumeData));
+            Flyout.Opening += OnFlyoutOpening;
+            Flyout.Closing += OnFlyoutClosing;
         }
 
         public override void LayoutRebuilt(ParseXmlResult parseResult)
         {
+            Debug.Log("Ember Layout Rebuilt");
             base.LayoutRebuilt(parseResult);
-            Debug.Log("1");
-            if (Mod.isUserApproved)
+            _content = xmlLayout.GetElementById("content-root");
+            _noEngine = xmlLayout.GetElementById("no-engine-selected-text");
+            AdjustableThrottle.adjustableThrottleSlider = throttleSlider = xmlLayout.GetElementById<Slider>("preview-throttle");
+            throttleDisplayValue = xmlLayout.GetElementById<TextMeshProUGUI>("preview-throttle-displayValue");
+            emberAltitudeSlider = xmlLayout.GetElementById<Slider>("preview-altitude");
+            altitudeDisplayValue = xmlLayout.GetElementById<TextMeshProUGUI>("preview-altitude-displayValue");
+            performanceAnalizer = Game.Instance.Designer.PerformanceAnalysis as CraftPerformanceAnalysis;
+            emberAltitudeSlider.SetValueWithoutNotify(CraftPerformanceAnalysisPatch.altitudeSlider != null ? CraftPerformanceAnalysisPatch.altitudeSlider.Value : 1);
+            altitudeDisplayValue.SetText(performanceAnalizer.GetAltitudeDisplayValue(performanceAnalizer.AtmosphereSample));
+            throttleSlider.SetValueWithoutNotify(1f);
+            OnThrottleSliderChanged(1f);
+            SetActiveForSelectedEngine(false);
+        }
+
+        private void OnFlyoutOpening(IFlyout flyout)
+        {
+            if (_designer.SelectedPart?.GetModifier<RocketEngineScript>() != null)
             {
-                Debug.Log("2");
-                OnSelectedPartChanged(null, Game.Instance.Designer.SelectedPart);
-                if (EngineSelected)
+                selectedRocketEngine = _designer.SelectedPart.GetModifier<RocketEngineScript>();
+                SetSymmetricExhaust(true);
+                SetActiveForSelectedEngine(true);
+                UpdateFlyoutDisplayValues();
+            }
+        }
+
+        private void OnFlyoutClosing(IFlyout flyout)
+        {
+            if (DesignerUi.SelectedFlyout?.Title == "Part Properties")
+            {
+                if (_designer.SelectedPart?.GetModifier<RocketEngineScript>() != null)
                 {
-                    Debug.Log("3");
-                    UpdateFlyoutDisplayValues();
+                    SetSymmetricExhaust(false);
+                    _designer.SelectedPart.GetModifier<RocketEngineScript>().PreviewExhaust = true;
                 }
-                Debug.Log("4");
-                _xmlSerializer = new XmlSerializer(typeof(PlumeData));
-                performanceAnalizer = Game.Instance.Designer.PerformanceAnalysis as CraftPerformanceAnalysis;
-                throttleSlider = AdjustableThrottle.adjustableThrottleSlider = xmlLayout.GetElementById<Slider>("preview-throttle");
-                throttleSlider.SetValueWithoutNotify(1f);
-                throttleDisplayValue = xmlLayout.GetElementById<TextMeshProUGUI>("preview-throttle-displayValue");
-                OnThrottleSliderChanged(1f);
-                emberAltitudeSlider = xmlLayout.GetElementById<Slider>("preview-altitude");
-                emberAltitudeSlider.SetValueWithoutNotify(AltitudeSlider.altitudeSlider != null ? AltitudeSlider.altitudeSlider.Value : 1);
-                xmlLayout.GetElementById("preview-altitude-displayValue").SetText(performanceAnalizer.GetAltitudeDisplayValue(performanceAnalizer.AtmosphereSample));
-                Debug.Log("5");
             }
             else
-            {
-                xmlLayout.GetElementById("invalid-user-text").SetActive(true);
-                xmlLayout.GetElementById("no-engine-selected-text").SetActive(false);
-                xmlLayout.GetElementById("content-root").SetActive(false);
-                Game.Quit();
-                Debug.Log("6");
-            }
-            Debug.Log("7");
+                SetSymmetricExhaust(false);
         }
 
         private void OnSelectedPartChanged(IPartScript oldPart, IPartScript newPart)
         {
-            //Debug.Log("Flout null?: " + Flyout == null);
-            //Debug.Log("Flout opened?: " + Flyout.IsOpen == null);
-            //if (!Flyout.IsOpen)
-                //return;
+            if (!Flyout.IsOpen)
+                return;
 
             if (newPart != null) // Hotkey to deselect part
             {
-                if (EngineSelected)
+                if (hasEngineSelected)
                 {
                     SetSymmetricExhaust(false);
                 }
@@ -95,59 +110,50 @@ namespace Assets.Scripts.Design
                     SetSymmetricExhaust(true);
                 }
 
-                if (EngineSelected)
+                if (hasEngineSelected)
                 {
-                    SetFlyoutForEngineSelect(true);
+                    SetActiveForSelectedEngine(true);
                     UpdateFlyoutDisplayValues();
                 }
-                else SetFlyoutForEngineSelect(false);
+                else SetActiveForSelectedEngine(false);
             }
             else if (oldPart != null)
             {
                 if (oldPart.GetModifier<RocketEngineScript>() != null)
                 {
-                    SetFlyoutForEngineSelect(false);
+                    SetActiveForSelectedEngine(false);
                     SetSymmetricExhaust(false, true, oldPart.GetModifier<RocketEngineScript>());
                 }
             }
             else
             {
                 SetSymmetricExhaust(false, true, selectedRocketEngine);
-                SetFlyoutForEngineSelect(false);
+                SetActiveForSelectedEngine(false);
             }
         }
 
-
-        private void OnThrottleSliderChanged(float value)
-        {
-            throttleDisplayValue.SetText(Units.GetPercentageString(value));
-        }
+        private void OnThrottleSliderChanged(float value) => throttleDisplayValue.SetText(Units.GetPercentageString(value));
 
         public void OnAltitudeSliderChanged(float value)
         {
             performanceAnalizer.SetAltitudePercentage(value);
-            xmlLayout.GetElementById("preview-altitude-displayValue").SetText(performanceAnalizer.GetAltitudeDisplayValue(performanceAnalizer.AtmosphereSample));
+            altitudeDisplayValue.SetText(performanceAnalizer.GetAltitudeDisplayValue(performanceAnalizer.AtmosphereSample));
         }
 
         public void OnCorrectionAltitudeSliderChanged(float value)
         {
             emberAltitudeSlider.SetValueWithoutNotify(value);
-            xmlLayout.GetElementById("preview-altitude-displayValue").SetText(performanceAnalizer.GetAltitudeDisplayValue(performanceAnalizer.AtmosphereSample));
+            altitudeDisplayValue.SetText(performanceAnalizer.GetAltitudeDisplayValue(performanceAnalizer.AtmosphereSample));
         }
 
-        public void UpdateAltitudeSliderDisplay()
-        {
-            OnCorrectionAltitudeSliderChanged(emberAltitudeSlider.value);
-        }
+        public void UpdateAltitudeSliderDisplay() => OnCorrectionAltitudeSliderChanged(emberAltitudeSlider.value);
 
-        public void SymmetrySliceUpdated()
-        {
-            SetSymmetricExhaust(true);
-        }
+        public void SymmetrySliceUpdated() => SetSymmetricExhaust(true);
         public void SetSymmetricExhaust(bool enabled, bool isOldPart = false, RocketEngineScript engine = null)
         {
-            if (isOldPart) selectedRocketEngine = engine;
-            if (EngineSelected)
+            if (isOldPart)
+                selectedRocketEngine = engine;
+            if (hasEngineSelected)
             {
                 selectedRocketEngine.PreviewExhaust = enabled;
                 Symmetry.ExecuteOnSymmetricPartModifiers(selectedRocketEngine.Data, true, delegate (RocketEngineData data)
@@ -157,15 +163,15 @@ namespace Assets.Scripts.Design
             }
         }
 
-        private void SetFlyoutForEngineSelect(bool engineSelect)
+        private void SetActiveForSelectedEngine(bool engineSelected)
         {
-            xmlLayout.GetElementById("content-root").SetActive(engineSelect);
-            xmlLayout.GetElementById("no-engine-selected-text").SetActive(!engineSelect);
-            xmlLayout.GetElementById("invalid-user-text").SetActive(!Mod.isUserApproved);
+            _content.SetActive(engineSelected);
+            _noEngine.SetActive(!engineSelected);
         }
+
         private void UpdateFlyoutDisplayValues()
         {
-            if (EngineSelected)
+            if (hasEngineSelected)
             {
                 // Plume Editing
                 setColorDisplays("main-color", "color", "tooltip", selectedRocketEngine.Data.ExhaustColor);
@@ -217,7 +223,6 @@ namespace Assets.Scripts.Design
             return propertyValue;
         }
 
-
         // Custom color to hex since the ModAPI doesn't include alpha, for some reason. If alpha is added to the ModAPI, then it could be converted back.
         public static string ColorToHexAlpha(Color32 color) => "#" + color.r.ToString("X2") + color.g.ToString("X2") + color.b.ToString("X2") + color.a.ToString("X2");
         private void setColorDisplays(string updateElement, string attibuteA, string attibuteB, Color color)
@@ -268,7 +273,7 @@ namespace Assets.Scripts.Design
             xmlLayout.GetElementById("soot-length-inputfield").SetActive(xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean());
             xmlLayout.GetElementById("sootColor").SetActive(xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean());
 
-            if (EngineSelected)
+            if (hasEngineSelected)
             {
                 if (xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean())
                 {
@@ -290,7 +295,7 @@ namespace Assets.Scripts.Design
             xmlLayout.GetElementById("smoke-speed").SetActive(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
             xmlLayout.GetElementById("smokeColor-Button").SetActive(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
             xmlLayout.GetElementById("smokeColor").SetActive(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
-            if (EngineSelected)
+            if (hasEngineSelected)
             {
                 Traverse.Create(selectedRocketEngine.Data).Field("_hasSmoke").SetValue(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
                 UpdateSymmetricRocketEngines();
@@ -299,7 +304,8 @@ namespace Assets.Scripts.Design
 
         private void TextBoxEdited(string boxID)
         {
-            if (boxID == "exhaust-expansion-range-x-input" || boxID == "exhaust-expansion-range-y-input")
+            if (boxID.Contains("exhaust-expansion-range"))
+            //if (boxID == "exhaust-expansion-range-x-input" || boxID == "exhaust-expansion-range-y-input")
             {
                 Vector2 expasionRangeValue = selectedRocketEngine.Data.ExhaustExpansionRange;
                 expasionRangeValue[xmlLayout.GetElementById(boxID).GetAttribute("internalID").ToInt()] = xmlLayout.GetElementById(boxID).GetValue().ToFloat();
@@ -312,6 +318,7 @@ namespace Assets.Scripts.Design
             UpdateFlyoutDisplayValues();
             UpdateSymmetricRocketEngines();
         }
+
         private void UpdateSymmetricRocketEngines()
         {
             if (Game.Instance.Designer.SelectedPart.SymmetrySlice != null)
@@ -342,6 +349,11 @@ namespace Assets.Scripts.Design
                 });
             }
             else selectedRocketEngine.Data.Script.InitializeExhaust();
+        }
+
+        internal void ImportPreset(PlumePresetData.PlumeData plumeData)
+        {
+            throw new NotImplementedException();
         }
     }
 }

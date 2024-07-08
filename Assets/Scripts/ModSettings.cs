@@ -18,7 +18,7 @@ namespace Assets.Scripts
 
         private static ModSettings _instance;
 
-        private static XmlSerializer _xmlSerializer = new(typeof(PlumeData));
+        private static XmlSerializer _xmlSerializer = new(typeof(PlumePresetData.PlumeData));
 
         private static FileStream _fileStream;
 
@@ -50,12 +50,12 @@ namespace Assets.Scripts
 
         public static void GeneratePlumePresets(FuelType fuelType)
         {
-            PlumeData plumeData = new()
+            PlumePresetData.PlumeData plumeData = new()
             {
                 PresetName = Utilities.ScrubFileName(fuelType.Name),
                 Author = fuelType.Mod != null ? fuelType.Mod.ModInfo.Author : "Jundroo"
         };
-            plumeData.plumeMain = new PlumeMain()
+            plumeData.plumeMain = new PlumePresetData.PlumeMain()
             {
                 MainColor = ColorToHexAlpha(fuelType.ExhaustColor),
                 TipColor = ColorToHexAlpha(fuelType.ExhaustColorTip),
@@ -69,19 +69,19 @@ namespace Assets.Scripts
                 ExpansionRangeX = -1,
                 ExpansionRangeY = -1
             };
-            plumeData.plumeDiamonds = new PlumeDiamonds()
+            plumeData.plumeDiamonds = new PlumePresetData.PlumeDiamonds()
             {
                 DiamondColor = ColorToHexAlpha(fuelType.ExhaustColorShock),
                 DiamondOffset = -1,
                 DiamondIntensity = fuelType.ShockIntensity
             };
-            plumeData.plumeSoot = new PlumeSoot()
+            plumeData.plumeSoot = new PlumePresetData.PlumeSoot()
             {
                 SootColor = ColorToHexAlpha(fuelType.ExhaustColorSoot),
                 SootIntensity = 0,
                 SootLength = 0
             };
-            plumeData.engineSmoke = new EngineSmoke()
+            plumeData.engineSmoke = new PlumePresetData.EngineSmoke()
             {
                 HasSmoke = true,
                 SmokeColor = ColorToHexAlpha(fuelType.ExhaustColorSmoke),

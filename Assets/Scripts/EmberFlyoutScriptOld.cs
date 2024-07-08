@@ -70,12 +70,12 @@ namespace Assets.Scripts
         private void OnSavePlumePreset(ModApi.Ui.InputDialogScript inputDialog)
         {
             inputDialog.Close();
-            PlumeData plumeData = new()
+            PlumePresetData.PlumeData plumeData = new()
             {
                 PresetName = inputDialog.InputText,
                 Author = (!string.IsNullOrEmpty(Game.Instance.Settings.UserName)) ? Game.Instance.Settings.UserName : "Unknown"
             };
-            plumeData.plumeMain = new PlumeMain()
+            plumeData.plumeMain = new PlumePresetData.PlumeMain()
             {
                 MainColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColor),
                 TipColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorTip),
@@ -89,19 +89,19 @@ namespace Assets.Scripts
                 ExpansionRangeX = selectedRocketEngine.Data.ExhaustExpansionRange[0],
                 ExpansionRangeY = selectedRocketEngine.Data.ExhaustExpansionRange[1]
             };
-            plumeData.plumeDiamonds = new PlumeDiamonds()
+            plumeData.plumeDiamonds = new PlumePresetData.PlumeDiamonds()
             {
                 DiamondColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorShock),
                 DiamondOffset = selectedRocketEngine.Data.ExhaustShockDirectionOffset,
                 DiamondIntensity = selectedRocketEngine.Data.ExhaustShockIntensity == -1f ? selectedRocketEngine.FuelSource.FuelType.ShockIntensity : selectedRocketEngine.Data.ExhaustShockIntensity
             };
-            plumeData.plumeSoot = new PlumeSoot()
+            plumeData.plumeSoot = new PlumePresetData.PlumeSoot()
             {
                 SootColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorSoot),
                 SootIntensity = selectedRocketEngine.Data.ExhaustSootIntensity,
                 SootLength = selectedRocketEngine.Data.ExhaustSootLength
             };
-            plumeData.engineSmoke = new EngineSmoke()
+            plumeData.engineSmoke = new PlumePresetData.EngineSmoke()
             {
                 HasSmoke = selectedRocketEngine.Data.HasSmoke,
                 SmokeColor = ColorToHexAlpha(selectedRocketEngine.Data.SmokeColor),
@@ -124,7 +124,7 @@ namespace Assets.Scripts
             else SavePresetFile(newPresetFilePath, plumeData);
         }
 
-        private void SavePresetFile(string presetFilePath, PlumeData plumeData)
+        private void SavePresetFile(string presetFilePath, PlumePresetData.PlumeData plumeData)
         {
             _fileStream = new FileStream(Mod.Instance.presetPath + presetFilePath, FileMode.Create);
             _xmlSerializer.Serialize(_fileStream, plumeData);
@@ -138,7 +138,7 @@ namespace Assets.Scripts
             Game.Instance.UserInterface.CreateListView(presetManager);
         }
 
-        public void ImportPreset(PlumeData plumeData)
+        public void ImportPreset(PlumePresetData.PlumeData plumeData)
         {
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColor").SetValue(plumeData.plumeMain.MainColor);
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorTip").SetValue(plumeData.plumeMain.TipColor);
@@ -219,14 +219,14 @@ namespace Assets.Scripts
             XmlLayout = (XmlLayout)controller.XmlLayout;
             flyout.Initialize(XmlLayout.GetElementById("flyout-Ember"));
             flyout.Open();
-            if (Mod.isUserApproved)
-            {
+            //if (Mod.isUserApproved)
+            //{
                 OnSelectedPartChanged(null, Game.Instance.Designer.SelectedPart);
                 if (EngineSelected)
                 {
                     UpdateFlyoutDisplayValues();
                 }
-                _xmlSerializer = new XmlSerializer(typeof(PlumeData));
+                _xmlSerializer = new XmlSerializer(typeof(PlumePresetData.PlumeData));
                 throttleSlider = XmlLayout.GetElementById<Slider>("preview-throttle");
                 throttleSlider.SetValueWithoutNotify(1f);
                 throttleDisplayValue = XmlLayout.GetElementById<TextMeshProUGUI>("preview-throttle-displayValue");
@@ -234,8 +234,8 @@ namespace Assets.Scripts
                 AdjustableThrottle.adjustableThrottleSlider = throttleSlider;
                 performanceAnalysis = Game.Instance.Designer.PerformanceAnalysis as CraftPerformanceAnalysis;
                 emberAltitudeSlider = XmlLayout.GetElementById<Slider>("preview-altitude");
-                emberAltitudeSlider.SetValueWithoutNotify(AltitudeSlider.altitudeSlider != null ? AltitudeSlider.altitudeSlider.Value : 1);
-                XmlLayout.GetElementById("preview-altitude-displayValue").SetText(performanceAnalysis.GetAltitudeDisplayValue(performanceAnalysis.AtmosphereSample));
+                emberAltitudeSlider.SetValueWithoutNotify(CraftPerformanceAnalysisPatch.altitudeSlider != null ? CraftPerformanceAnalysisPatch.altitudeSlider.Value : 1);
+                XmlLayout.GetElementById("preview-altitude-displayValue").SetText(performanceAnalysis.GetAltitudeDisplayValue(performanceAnalysis.AtmosphereSample));/*
             }
             else
             {
@@ -243,7 +243,7 @@ namespace Assets.Scripts
                 XmlLayout.GetElementById("notEngineSelected").SetActive(false);
                 XmlLayout.GetElementById("engineSelected").SetActive(false);
                 Game.Quit();
-            }
+            }*/
         }
 
         private void OnSelectedPartChanged(IPartScript oldPart, IPartScript newPart)
@@ -287,7 +287,7 @@ namespace Assets.Scripts
         {
             XmlLayout.GetElementById("engineSelected").SetActive(engineSelect);
             XmlLayout.GetElementById("notEngineSelected").SetActive(!engineSelect);
-            XmlLayout.GetElementById("notValidUser").SetActive(!Mod.isUserApproved);
+            //XmlLayout.GetElementById("notValidUser").SetActive(!Mod.isUserApproved);
         }
 
         private void UpdateFlyoutDisplayValues()
@@ -495,101 +495,6 @@ namespace Assets.Scripts
         public void SymmetrySliceUpdated()
         {
             SetSymmetricExhaust(true);
-        }
-    }
-
-    [HarmonyPatch(typeof(ExhaustSystemScript), "UpdateExhaust")]
-    class AdjustableThrottle
-    {
-        public static Slider adjustableThrottleSlider;
-
-        static bool Prefix(ref float throttle)
-        {
-            if (Game.InDesignerScene) if (adjustableThrottleSlider != null) throttle = adjustableThrottleSlider.value;
-            return true;
-        }
-    }
-
-    [HarmonyPatch(typeof(CraftPerformanceAnalysis), "CreateEnvironmentGroup")]
-    class AltitudeSlider
-    {
-        static public SliderModel altitudeSlider;
-        static void Postfix(CraftPerformanceAnalysis __instance)
-        {
-            altitudeSlider = Traverse.Create(__instance).Field("_altitudeSlider").GetValue<SliderModel>();
-            altitudeSlider.ValueChangedByUserInput += sliderChanged;
-        }
-        private static void sliderChanged(ItemModel model, string name, bool finished)
-        {
-            EmberDesignerButton.OnCorrectionAltitudeSliderChanged(altitudeSlider.Value);
-        }
-    }
-
-    [HarmonyPatch(typeof(CraftPerformanceAnalysis), "SelectNextEnvironment")]
-    class AltitudeSliderDisplayUpdate
-    {
-        static void Postfix(CraftPerformanceAnalysis __instance)
-        {
-            EmberDesignerButton.UpdateAltitudeSliderDisplay();
-        }
-    }
-
-    [HarmonyPatch(typeof(Symmetry), "SetSymmetryMode")]
-    class SymmetrySliceUpdate
-    {
-        static void Postfix(Symmetry __instance)
-        {
-            EmberDesignerButton.SymmetrySliceUpdated();
-        }
-    }
-
-    [HarmonyPatch(typeof(StagingEditorPanelScript), "OnOpened")]
-    class StageEditorOpen
-    {
-        // Called when Opening the UI
-        static void Postfix(StagingEditorPanelScript __instance)
-        {
-            EmberDesignerButton.StageExhaustPreview();
-        }
-    }
-
-    [HarmonyPatch(typeof(ActivationGroupsPanelScript), "OnOpened")]
-    class AGEditorOpened
-    {
-        // Called when Opening the UI
-        static void Postfix(ActivationGroupsPanelScript __instance)
-        {
-            EmberDesignerButton.UpdateStageExhaustPreview(false);
-        }
-    }
-
-    [HarmonyPatch(typeof(ValidationPanelScript), "OnOpened")]
-    class ValidationOpened
-    {
-        // Called when Opening the UI
-        static void Postfix(ValidationPanelScript __instance)
-        {
-            EmberDesignerButton.UpdateStageExhaustPreview(false);
-        }
-    }
-
-    [HarmonyPatch(typeof(CraftPerformanceAnalysis), "OnStagingChanged")]
-    class StageUpdate
-    {
-        // Occurs when updating within the staging menu
-        static void Postfix(CraftPerformanceAnalysis __instance)
-        {
-            EmberDesignerButton.StageExhaustPreview();
-        }
-    }
-
-    [HarmonyPatch(typeof(CraftPerformanceAnalysis), "AdvanceStage")]
-    class StageAdvanced
-    {
-        // Occurs when using the stages scroller on Design Info
-        static void Postfix(CraftPerformanceAnalysis __instance)
-        {
-            EmberDesignerButton.StageExhaustPreview();
         }
     }
 }

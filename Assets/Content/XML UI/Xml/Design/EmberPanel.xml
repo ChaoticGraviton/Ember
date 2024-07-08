@@ -3,7 +3,6 @@
 	<Include path="Ui/Xml/Design/DesignStyles.xml" />
 	<Defaults>
 	</Defaults>
-	<TextMeshPro id="invalid-user-text" text="No sparks here, sorry." />
 	<TextMeshPro id="no-engine-selected-text" text="No rocket engine selected" />
 	<VerticalScrollView class="no-image">
 		<VerticalLayout id="content-root" class="no-image" childForceExpandHeight="false" pivot="0 1" contentSizeFitter="vertical" rectAlignment="UpperCenter" childAlignment="UpperCenter" padding="20 20 20 50" spacing="10">
