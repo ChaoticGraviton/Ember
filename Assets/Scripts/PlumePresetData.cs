@@ -90,6 +90,7 @@ public class PlumePresetData
         private DetailsWidgetGroup _sootLabel;
         private DetailsWidgetGroup _smokeLabel;
         private DetailsPropertyScript _mainColor;
+        private DetailsPropertyScript _expandedColor;
         private DetailsPropertyScript _tipColor;
         private DetailsPropertyScript _flameColor;
         private DetailsPropertyScript _exhaustScale;
@@ -116,6 +117,7 @@ public class PlumePresetData
             _plumeLabel = listViewDetails.Widgets.AddGroup();
             _plumeLabel.AddHeader("Main Plume");
             _mainColor = listViewDetails.Widgets.AddProperty("Main Color");
+            _expandedColor = listViewDetails.Widgets.AddProperty("Expanded Color");
             _tipColor = listViewDetails.Widgets.AddProperty("Tip Color");
             _flameColor = listViewDetails.Widgets.AddProperty("Flame Color");
             _globalIntenisty = listViewDetails.Widgets.AddProperty("Intensity");
@@ -149,6 +151,7 @@ public class PlumePresetData
         {
             _description.Text = "Preset file location: " + plumeData.path;
             _mainColor.ValueText = plumeData.plumeMain.MainColor;
+            _expandedColor.ValueText = plumeData.plumeMain.ExpandedColor ??= plumeData.plumeMain.MainColor;
             _tipColor.ValueText = plumeData.plumeMain.TipColor;
             _flameColor.ValueText = plumeData.plumeMain.FlameColor;
             _exhaustScale.ValueText = plumeData.plumeMain.ExhaustScale.ToString();

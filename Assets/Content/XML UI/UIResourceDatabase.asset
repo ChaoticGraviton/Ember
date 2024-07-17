@@ -18,18 +18,8 @@ MonoBehaviour:
   - Content/XML UI
   AutomaticallyRemoveEntries: 1
   entries:
-  - path: Advanced Plume Editor/EmberFlyout
-    resource: {fileID: 4900000, guid: 124d5b6bad338474c9831358ee9c9260, type: 3}
-  - path: Advanced Plume Editor/Sprites/EmberUIButton
-    resource: {fileID: 21300000, guid: 438ee0f80c87c2747a21ebde1c501ac5, type: 3}
   - path: Advanced Plume Editor/Sprites/EmberUIFlame
     resource: {fileID: 21300000, guid: 4a8d4809b2e428c4b80b13b4170bddf4, type: 3}
-  - path: Advanced Plume Editor/Sprites/TestIcon
-    resource: {fileID: 21300000, guid: 82e81bb9f2835184099fc9938b742075, type: 3}
-  - path: Advanced Plume Editor/Sprites/UIClosed
-    resource: {fileID: 21300000, guid: 6dec0db15667e9c43b21177c2aaf50df, type: 3}
-  - path: Advanced Plume Editor/Sprites/UIOpen
-    resource: {fileID: 21300000, guid: 019210e7898b23b4aa99c92195c673e3, type: 3}
   - path: Advanced Plume Editor/UIResourceDatabase
     resource: {fileID: 11400000}
   - path: Advanced Plume Editor/Xml/Design/EmberPanel

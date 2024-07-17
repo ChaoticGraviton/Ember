@@ -12,32 +12,29 @@ namespace Assets.Scripts
 {
     public class LoadPresetUI : ListViewModel
     {
-        public string Title { get; set; } = "Preset Selection";
         private PlumePresetData.PresetDetails _details;
         private List<PlumePresetData.PlumeData> plumePresets;
 
         public LoadPresetUI(string path)
         {
             plumePresets = new List<PlumePresetData.PlumeData>();
-            XmlSerializer xmlSerializer = new XmlSerializer(typeof(PlumePresetData.PlumeData));
+            XmlSerializer xmlSerializer = new(typeof(PlumePresetData.PlumeData));
             path = (path.Remove(path.Length - 1));
             var presetFiles = Directory.EnumerateFiles(path, "*.xml", SearchOption.AllDirectories);
             foreach (string currentFile in presetFiles)
             {
                 string fileName = currentFile.Substring(path.Length + 1);
-                using (StringReader reader = new StringReader(File.ReadAllText(path + "/" + fileName)))
-                {
-                    PlumePresetData.PlumeData plumeData = xmlSerializer.Deserialize(reader) as PlumePresetData.PlumeData;
-                    plumeData.path = currentFile;
-                    plumePresets.Add(plumeData);
-                }
+                using StringReader reader = new(File.ReadAllText(path + "/" + fileName));
+                PlumePresetData.PlumeData plumeData = xmlSerializer.Deserialize(reader) as PlumePresetData.PlumeData;
+                plumeData.path = currentFile;
+                plumePresets.Add(plumeData);
             }
         }
 
         public override void OnListViewInitialized(ListViewScript listView)
         {
             base.OnListViewInitialized(listView);
-            listView.Title = Title;
+            listView.Title = "Preset Selection";
             listView.CanDelete = true;
             listView.PrimaryButtonText = "IMPORT PRESET";
             listView.NoSelectionMessageText = "Select a preset from the left for more details";
@@ -48,10 +45,10 @@ namespace Assets.Scripts
 
         public override IEnumerator LoadItems()
         {
-            _details = new PlumePresetData.PresetDetails(base.ListView.ListViewDetails);
+            _details = new PlumePresetData.PresetDetails(ListView.ListViewDetails);
             foreach (PlumePresetData.PlumeData plumeData in plumePresets)
             {
-                ListViewItemScript listViewItemScript = ListView.CreateItem(plumeData.PresetName, plumeData.Author, plumeData);
+                ListView.CreateItem(plumeData.PresetName, plumeData.Author, plumeData);
             }
 
             yield return new WaitForEndOfFrame();
@@ -59,7 +56,8 @@ namespace Assets.Scripts
 
         public override void UpdateDetails(ListViewItemScript item, Action completeCallback)
         {
-            if (item != null) _details.UpdateDetails(item.ItemModel as PlumePresetData.PlumeData);
+            if (item != null)
+                _details.UpdateDetails(item.ItemModel as PlumePresetData.PlumeData);
             completeCallback?.Invoke();
         }
 

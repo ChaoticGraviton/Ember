@@ -10,6 +10,7 @@ using System.IO;
 using System.Xml.Serialization;
 using TMPro;
 using UI.Xml;
+using UI.Xml.Tags;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,9 +18,35 @@ namespace Assets.Scripts.Design
 {
     public class EmberFlyoutPanelScript : DesignerFlyoutPanelScript
     {
+        private IDesigner _designer;
         XmlElement _content;
         XmlElement _noEngine;
-        private IDesigner _designer;
+        XmlElement _colorMain;
+        XmlElement _colorExpanded;
+        XmlElement _colorTip;
+        XmlElement _colorFlame;
+        XmlElement _colorDiamond;
+        XmlElement _colorSoot;
+        XmlElement _colorSmoke;
+        XmlElement _inputGlobalIntensity;
+        XmlElement _inputTextureStrength;
+        XmlElement _inputScale;
+        XmlElement _inputOffset;
+        XmlElement _inputRimshade;
+        XmlElement _inputDiscStrength;
+        XmlElement _inputExpansionMin;
+        XmlElement _inputExpansionMax;
+        XmlElement _inputDiamondOffset;
+        XmlElement _inputDiamondIntensity;
+        XmlElement _toggleSoot;
+        XmlElement _buttonSootColor;
+        XmlElement _inputSootIntensity;
+        XmlElement _inputSootLength;
+        XmlElement _panelSootColor;
+        XmlElement _toggleSmoke;
+        XmlElement _inputSmokeSpeed;
+        XmlElement _panelSmokeColor;
+        XmlElement _buttonSmokeColor;
         public Slider throttleSlider;
         public Slider emberAltitudeSlider;
         private TextMeshProUGUI throttleDisplayValue;
@@ -54,6 +81,32 @@ namespace Assets.Scripts.Design
             base.LayoutRebuilt(parseResult);
             _content = xmlLayout.GetElementById("content-root");
             _noEngine = xmlLayout.GetElementById("no-engine-selected-text");
+            _colorMain = xmlLayout.GetElementById("main-color");
+            _colorExpanded = xmlLayout.GetElementById("expand-color");
+            _colorTip = xmlLayout.GetElementById("tip-color");
+            _colorFlame = xmlLayout.GetElementById("flame-color");
+            _inputGlobalIntensity = xmlLayout.GetElementById("exhaust-global-intensity-input");
+            _inputTextureStrength = xmlLayout.GetElementById("exhaust-texture-strength-input");
+            _inputScale = xmlLayout.GetElementById("exhaust-scale-input");
+            _inputOffset = xmlLayout.GetElementById("exhaust-offset-input");
+            _inputRimshade = xmlLayout.GetElementById("exhaust-rimshade-input");
+            _inputDiscStrength = xmlLayout.GetElementById("exhaust-disc-strength-input");
+            _inputExpansionMin = xmlLayout.GetElementById("exhaust-expansion-range-x-input");
+            _inputExpansionMax = xmlLayout.GetElementById("exhaust-expansion-range-y-input");
+            _colorDiamond = xmlLayout.GetElementById("diamond-color");
+            _inputDiamondOffset = xmlLayout.GetElementById("diamond-offset-input");
+            _inputDiamondIntensity = xmlLayout.GetElementById("diamond-intensity-input");
+            _toggleSoot = xmlLayout.GetElementById("soot-toggle");
+            _buttonSootColor = xmlLayout.GetElementById("sootColor-Button");
+            _colorSoot = xmlLayout.GetElementById("soot-color");
+            _inputSootIntensity = xmlLayout.GetElementById("soot-intensity-input");
+            _inputSootLength = xmlLayout.GetElementById("soot-length-input");
+            _panelSootColor = xmlLayout.GetElementById("sootColor");
+            _toggleSmoke = xmlLayout.GetElementById("smoke-toggle");
+            _buttonSmokeColor = xmlLayout.GetElementById("smokeColor-Button");
+            _colorSmoke = xmlLayout.GetElementById("smoke-color");
+            _inputSmokeSpeed = xmlLayout.GetElementById("smoke-speed-input");
+            _panelSmokeColor = xmlLayout.GetElementById("smokeColor");
             AdjustableThrottle.adjustableThrottleSlider = throttleSlider = xmlLayout.GetElementById<Slider>("preview-throttle");
             throttleDisplayValue = xmlLayout.GetElementById<TextMeshProUGUI>("preview-throttle-displayValue");
             emberAltitudeSlider = xmlLayout.GetElementById<Slider>("preview-altitude");
@@ -64,6 +117,40 @@ namespace Assets.Scripts.Design
             throttleSlider.SetValueWithoutNotify(1f);
             OnThrottleSliderChanged(1f);
             SetActiveForSelectedEngine(false);
+        }
+
+        private void LoadPresetButtonClicked()
+        {
+            LoadPresetUI presetManager = new LoadPresetUI(Mod.Instance.presetPath);
+            Game.Instance.UserInterface.CreateListView(presetManager);
+        }
+
+        private void SavePresetButtonClicked()
+        {
+            InputDialogScript inputDialogScript = Game.Instance.UserInterface.CreateInputDialog();
+            inputDialogScript.InputPlaceholderText = "Preset Name";
+            inputDialogScript.MessageText = "Save Preset";
+            inputDialogScript.OkayButtonText = "SAVE";
+            inputDialogScript.CancelButtonText = "CANCEL";
+            inputDialogScript.MaxLength = 255;
+            inputDialogScript.InvalidCharacters.AddRange(Path.GetInvalidFileNameChars());
+            inputDialogScript.OkayClicked += OnSavePlumePreset;
+        }
+
+        public void ResetPlumeButtonClicked()
+        {
+            if (Game.Instance.Designer.SelectedPart.SymmetrySlice != null)
+            {
+                Symmetry.ExecuteOnSymmetricPartModifiers(selectedRocketEngine.Data, true, delegate (RocketEngineData data)
+                {
+                    ResetPlume(data);
+                });
+            }
+            else
+            {
+                ResetPlume(selectedRocketEngine.Data);
+            }
+            UpdateFlyoutDisplayValues();
         }
 
         private void OnFlyoutOpening(IFlyout flyout)
@@ -144,15 +231,14 @@ namespace Assets.Scripts.Design
             altitudeDisplayValue.SetText(performanceAnalizer.GetAltitudeDisplayValue(performanceAnalizer.AtmosphereSample));
         }
 
-        public void OnCorrectionAltitudeSliderChanged(float value)
+        public void SetAltitudeSlider(float value)
         {
             emberAltitudeSlider.SetValueWithoutNotify(value);
             altitudeDisplayValue.SetText(performanceAnalizer.GetAltitudeDisplayValue(performanceAnalizer.AtmosphereSample));
         }
 
-        public void UpdateAltitudeSliderDisplay() => OnCorrectionAltitudeSliderChanged(emberAltitudeSlider.value);
+        public void UpdateAltitudeSliderDisplay() => SetAltitudeSlider(emberAltitudeSlider.value);
 
-        public void SymmetrySliceUpdated() => SetSymmetricExhaust(true);
         public void SetSymmetricExhaust(bool enabled, bool isOldPart = false, RocketEngineScript engine = null)
         {
             if (isOldPart)
@@ -178,43 +264,43 @@ namespace Assets.Scripts.Design
             if (hasEngineSelected)
             {
                 // Plume Editing
-                setColorDisplays("main-color", "color", "tooltip", selectedRocketEngine.Data.ExhaustColor);
-                setColorDisplays("expand-color", "color", "tooltip", selectedRocketEngine.Data.ExhaustColorExpanded);
-                setColorDisplays("tip-color", "color", "tooltip", selectedRocketEngine.Data.ExhaustColorTip);
-                setColorDisplays("flame-color", "color", "tooltip", selectedRocketEngine.Data.ExhaustColorFlame);
-                xmlLayout.GetElementById("exhaust-global-intensity-input").SetValue(SetFormatForDefault(selectedRocketEngine.Data.ExhaustGlobalIntensity.ToString()));
-                xmlLayout.GetElementById("exhaust-texture-strength-input").SetValue(selectedRocketEngine.Data.ExhaustTextureStrength.ToString());
-                xmlLayout.GetElementById("exhaust-scale-input").SetValue(selectedRocketEngine.Data.ExhaustScale.ToString());
-                xmlLayout.GetElementById("exhaust-offset-input").SetValue(selectedRocketEngine.Data.ExhaustOffset.ToString());
-                xmlLayout.GetElementById("exhaust-rimshade-input").SetValue(SetFormatForDefault(selectedRocketEngine.Data.ExhaustRimShade.ToString()));
-                xmlLayout.GetElementById("exhaust-disc-strength-input").SetValue(selectedRocketEngine.Data.NozzleDiscStrength.ToString());
-                xmlLayout.GetElementById("exhaust-expansion-range-x-input").SetValue(selectedRocketEngine.Data.ExhaustExpansionRange[0].ToString());
-                xmlLayout.GetElementById("exhaust-expansion-range-y-input").SetValue(selectedRocketEngine.Data.ExhaustExpansionRange[1].ToString());
+                setColorDisplays(_colorMain, "color", "tooltip", selectedRocketEngine.Data.ExhaustColor);
+                setColorDisplays(_colorExpanded, "color", "tooltip", selectedRocketEngine.Data.ExhaustColorExpanded);
+                setColorDisplays(_colorTip, "color", "tooltip", selectedRocketEngine.Data.ExhaustColorTip);
+                setColorDisplays(_colorFlame, "color", "tooltip", selectedRocketEngine.Data.ExhaustColorFlame);
+                _inputGlobalIntensity.SetValue(SetFormatForDefault(selectedRocketEngine.Data.ExhaustGlobalIntensity.ToString()));
+                _inputTextureStrength.SetValue(selectedRocketEngine.Data.ExhaustTextureStrength.ToString());
+                _inputScale.SetValue(selectedRocketEngine.Data.ExhaustScale.ToString());
+                _inputOffset.SetValue(selectedRocketEngine.Data.ExhaustOffset.ToString());
+                _inputRimshade.SetValue(SetFormatForDefault(selectedRocketEngine.Data.ExhaustRimShade.ToString()));
+                _inputDiscStrength.SetValue(selectedRocketEngine.Data.NozzleDiscStrength.ToString());
+                _inputExpansionMin.SetValue(selectedRocketEngine.Data.ExhaustExpansionRange[0].ToString());
+                _inputExpansionMax.SetValue(selectedRocketEngine.Data.ExhaustExpansionRange[1].ToString());
 
                 // Shock Editing
-                setColorDisplays("diamond-color", "color", "tooltip", selectedRocketEngine.Data.ExhaustColorShock);
-                xmlLayout.GetElementById("diamond-offset-input").SetValue(selectedRocketEngine.Data.ExhaustShockDirectionOffset.ToString());
-                xmlLayout.GetElementById("diamond-intensity-input").SetValue(SetFormatForDefault(selectedRocketEngine.Data.ExhaustShockIntensity.ToString()));
+                setColorDisplays(_colorDiamond, "color", "tooltip", selectedRocketEngine.Data.ExhaustColorShock);
+                _inputDiamondOffset.SetValue(selectedRocketEngine.Data.ExhaustShockDirectionOffset.ToString());
+                _inputDiamondIntensity.SetValue(SetFormatForDefault(selectedRocketEngine.Data.ExhaustShockIntensity.ToString()));
 
                 // Soot Editing
                 sootEnabled = selectedRocketEngine.Data.ExhaustSootIntensity > 0;
-                xmlLayout.GetElementById("soot-toggle").SetValue(sootEnabled.ToString());
-                xmlLayout.GetElementById("sootColor-Button").SetActive(xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean());
-                xmlLayout.GetElementById("soot-intensity-inputfield").SetActive(xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean());
-                xmlLayout.GetElementById("soot-length-inputfield").SetActive(xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean());
-                xmlLayout.GetElementById("sootColor").SetActive(xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean());
-                setColorDisplays("soot-color", "color", "tooltip", selectedRocketEngine.Data.ExhaustColorSoot);
-                xmlLayout.GetElementById("soot-intensity-input").SetValue(selectedRocketEngine.Data.ExhaustSootIntensity.ToString());
-                xmlLayout.GetElementById("soot-length-input").SetValue(selectedRocketEngine.Data.ExhaustSootLength.ToString());
+                _toggleSoot.SetValue(sootEnabled.ToString());
+                _buttonSootColor.SetActive(sootEnabled);
+                _inputSootIntensity.parentElement.SetActive(sootEnabled);
+                _inputSootLength.parentElement.SetActive(sootEnabled);
+                _panelSootColor.SetActive(sootEnabled);
+                setColorDisplays(_colorSoot, "color", "tooltip", selectedRocketEngine.Data.ExhaustColorSoot);
+                _inputSootIntensity.SetValue(selectedRocketEngine.Data.ExhaustSootIntensity.ToString());
+                _inputSootLength.SetValue(selectedRocketEngine.Data.ExhaustSootLength.ToString());
 
                 // Smoke Editing
                 smokeEnabled = selectedRocketEngine.Data.HasSmoke;
-                xmlLayout.GetElementById("smoke-toggle").SetValue(smokeEnabled.ToString());
-                xmlLayout.GetElementById("smoke-speed").SetActive(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
-                xmlLayout.GetElementById("smokeColor-Button").SetActive(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
-                xmlLayout.GetElementById("smokeColor").SetActive(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
-                setColorDisplays("smoke-color", "color", "tooltip", selectedRocketEngine.Data.SmokeColor);
-                xmlLayout.GetElementById("smoke-speed-input").SetValue(selectedRocketEngine.Data.SmokeSpeed.ToString());
+                _toggleSmoke.SetValue(smokeEnabled.ToString());
+                _buttonSmokeColor.SetActive(smokeEnabled);
+                _inputSmokeSpeed.parentElement.SetActive(smokeEnabled);
+                _panelSmokeColor.SetActive(smokeEnabled);
+                setColorDisplays(_colorSmoke, "color", "tooltip", selectedRocketEngine.Data.SmokeColor);
+                _inputSmokeSpeed.SetValue(selectedRocketEngine.Data.SmokeSpeed.ToString());
 
                 // Updates the engine exhaust
                 selectedRocketEngine.Data.Script.InitializeExhaust();
@@ -229,11 +315,13 @@ namespace Assets.Scripts.Design
 
         // Custom color to hex since the ModAPI doesn't include alpha, for some reason. If alpha is added to the ModAPI, then it could be converted back.
         public static string ColorToHexAlpha(Color32 color) => "#" + color.r.ToString("X2") + color.g.ToString("X2") + color.b.ToString("X2") + color.a.ToString("X2");
-        private void setColorDisplays(string updateElement, string attibuteA, string attibuteB, Color color)
+
+        private void setColorDisplays(XmlElement element, string attibuteA, string attibuteB, Color color)
         {
-            xmlLayout.GetElementById(updateElement).SetAndApplyAttribute(attibuteA, ColorToHexAlpha(color));
-            xmlLayout.GetElementById(updateElement).SetAndApplyAttribute(attibuteB, ColorToHexAlpha(color));
+            element.SetAndApplyAttribute(attibuteA, ColorToHexAlpha(color));
+            element.SetAndApplyAttribute(attibuteB, ColorToHexAlpha(color));
         }
+
         private void UpdateColorRefValues()
         {
             colorReferences["Base"] = selectedRocketEngine.Data.ExhaustColor;
@@ -272,23 +360,16 @@ namespace Assets.Scripts.Design
         private void OnSootToggleClicked()
         {
             // Disables the visibility of the elements in the UI
-            xmlLayout.GetElementById("sootColor-Button").SetActive(xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean());
-            xmlLayout.GetElementById("soot-intensity-inputfield").SetActive(xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean());
-            xmlLayout.GetElementById("soot-length-inputfield").SetActive(xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean());
-            xmlLayout.GetElementById("sootColor").SetActive(xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean());
+            bool sootToggle = _toggleSoot.GetValue().ToBoolean();
+            _buttonSootColor.SetActive(sootToggle);
+            _inputSootIntensity.parentElement.SetActive(sootToggle);
+            _inputSootLength.parentElement.SetActive(sootToggle);
+            _panelSootColor.SetActive(sootToggle);
 
             if (hasEngineSelected)
             {
-                if (xmlLayout.GetElementById("soot-toggle").GetValue().ToBoolean())
-                {
-                    Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootIntensity").SetValue(1);
-                    xmlLayout.GetElementById("soot-intensity-input").SetText("1");
-                }
-                else
-                {
-                    Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootIntensity").SetValue(0);
-                    xmlLayout.GetElementById("soot-intensity-input").SetText("0");
-                }
+                Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootIntensity").SetValue(sootToggle ? 1 : 0);
+                _inputSootIntensity.SetText(selectedRocketEngine.Data.ExhaustSootIntensity.ToString());
                 UpdateSymmetricRocketEngines();
             }
         }
@@ -296,12 +377,14 @@ namespace Assets.Scripts.Design
         private void OnSmokeToggleClicked()
         {
             // Disables the visibility of the elements in the UI
-            xmlLayout.GetElementById("smoke-speed").SetActive(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
-            xmlLayout.GetElementById("smokeColor-Button").SetActive(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
-            xmlLayout.GetElementById("smokeColor").SetActive(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
+            bool smokeToggle = _toggleSmoke.GetValue().ToBoolean();
+            _inputSmokeSpeed.parentElement.SetActive(smokeToggle);
+            _buttonSmokeColor.SetActive(smokeToggle);
+            _panelSmokeColor.SetActive(smokeToggle);
+
             if (hasEngineSelected)
             {
-                Traverse.Create(selectedRocketEngine.Data).Field("_hasSmoke").SetValue(xmlLayout.GetElementById("smoke-toggle").GetValue().ToBoolean());
+                Traverse.Create(selectedRocketEngine.Data._hasSmoke).SetValue(smokeToggle);
                 UpdateSymmetricRocketEngines();
             }
         }
@@ -309,7 +392,6 @@ namespace Assets.Scripts.Design
         private void TextBoxEdited(string boxID)
         {
             if (boxID.Contains("exhaust-expansion-range"))
-            //if (boxID == "exhaust-expansion-range-x-input" || boxID == "exhaust-expansion-range-y-input")
             {
                 Vector2 expasionRangeValue = selectedRocketEngine.Data.ExhaustExpansionRange;
                 expasionRangeValue[xmlLayout.GetElementById(boxID).GetAttribute("internalID").ToInt()] = xmlLayout.GetElementById(boxID).GetValue().ToFloat();
@@ -323,7 +405,7 @@ namespace Assets.Scripts.Design
             UpdateSymmetricRocketEngines();
         }
 
-        private void UpdateSymmetricRocketEngines()
+        private void UpdateSymmetricRocketEngines(bool settingDefault = false)
         {
             if (Game.Instance.Designer.SelectedPart.SymmetrySlice != null)
             {
@@ -353,24 +435,6 @@ namespace Assets.Scripts.Design
                 });
             }
             else selectedRocketEngine.Data.Script.InitializeExhaust();
-        }
-
-        private void LoadPresetButtonClicked()
-        {
-            LoadPresetUI presetManager = new LoadPresetUI(Mod.Instance.presetPath);
-            Game.Instance.UserInterface.CreateListView(presetManager);
-        }
-
-        private void SavePresetButtonClicked()
-        {
-            InputDialogScript inputDialogScript = Game.Instance.UserInterface.CreateInputDialog();
-            inputDialogScript.InputPlaceholderText = "Preset Name";
-            inputDialogScript.MessageText = "Save Preset";
-            inputDialogScript.OkayButtonText = "SAVE";
-            inputDialogScript.CancelButtonText = "CANCEL";
-            inputDialogScript.MaxLength = 255;
-            inputDialogScript.InvalidCharacters.AddRange(Path.GetInvalidFileNameChars());
-            inputDialogScript.OkayClicked += OnSavePlumePreset;
         }
 
         private void OnSavePlumePreset(InputDialogScript inputDialog)
@@ -417,12 +481,12 @@ namespace Assets.Scripts.Design
             var newPresetFilePath = inputDialog.InputText + ".xml";
             if (File.Exists(Mod.Instance.presetPath + newPresetFilePath))
             {
-                ModApi.Ui.MessageDialogScript verifyOverwriteDialog = Game.Instance.UserInterface.CreateMessageDialog(MessageDialogType.OkayCancel);
+                MessageDialogScript verifyOverwriteDialog = Game.Instance.UserInterface.CreateMessageDialog(MessageDialogType.OkayCancel);
                 verifyOverwriteDialog.MessageText = "A preset file already exists with the name: '" + inputDialog.InputText + "'<br> Would you like to overwrite this preset?";
                 verifyOverwriteDialog.CancelButtonText = "CANCEL";
                 verifyOverwriteDialog.OkayButtonText = "OVERWRITE";
                 verifyOverwriteDialog.UseDangerButtonStyle = true;
-                verifyOverwriteDialog.OkayClicked += delegate (ModApi.Ui.MessageDialogScript dialog)
+                verifyOverwriteDialog.OkayClicked += delegate (MessageDialogScript dialog)
                 {
                     dialog.Close();
                     SavePresetFile(newPresetFilePath, plumeData);
@@ -442,7 +506,6 @@ namespace Assets.Scripts.Design
         public void ImportPreset(PlumePresetData.PlumeData plumeData)
         {
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColor").SetValue(plumeData.plumeMain.MainColor);
-            // Accounting for old presets that do not contain ExpandedColor
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorExpanded").SetValue(plumeData.plumeMain?.ExpandedColor ?? plumeData.plumeMain.MainColor);
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorTip").SetValue(plumeData.plumeMain.TipColor);
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorFlame").SetValue(plumeData.plumeMain.FlameColor);
@@ -466,30 +529,29 @@ namespace Assets.Scripts.Design
             UpdateSymmetricRocketEngines();
         }
 
-        public void ResetPlume()
+        public void ResetPlume(RocketEngineData data)
         {
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColor").SetValue("Default");
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorExpanded").SetValue("Default");
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorTip").SetValue("Default");
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorFlame").SetValue("Default");
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustGlobalIntensity").SetValue(-1);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustTextureStrength").SetValue(1);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustScale").SetValue(1);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustOffset").SetValue(0);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustRimShade").SetValue(-1);
-            Traverse.Create(selectedRocketEngine.Data).Field("_nozzleDiscStrength").SetValue(5);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustExpansionRange").SetValue(new Vector2(-1, -1));
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorShock").SetValue("Default");
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockDirectionOffset").SetValue(0);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockIntensity").SetValue(-1);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorSoot").SetValue("Default");
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootIntensity").SetValue(0);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootLength").SetValue(0);
-            Traverse.Create(selectedRocketEngine.Data).Field("_hasSmoke").SetValue(true);
-            Traverse.Create(selectedRocketEngine.Data).Field("_smokeColor").SetValue("Default");
-            Traverse.Create(selectedRocketEngine.Data).Field("_smokeSpeedOverride").SetValue(1);
-            UpdateFlyoutDisplayValues();
-            UpdateSymmetricRocketEngines();
+            Traverse.Create(data).Field("_exhaustColor").SetValue("Default");
+            Traverse.Create(data).Field("_exhaustColorExpanded").SetValue("Default");
+            Traverse.Create(data).Field("_exhaustColorTip").SetValue("Default");
+            Traverse.Create(data).Field("_exhaustColorFlame").SetValue("Default");
+            Traverse.Create(data).Field("_exhaustGlobalIntensity").SetValue(-1);
+            Traverse.Create(data).Field("_exhaustTextureStrength").SetValue(1);
+            Traverse.Create(data).Field("_exhaustScale").SetValue(1);
+            Traverse.Create(data).Field("_exhaustOffset").SetValue(0);
+            Traverse.Create(data).Field("_exhaustRimShade").SetValue(-1);
+            Traverse.Create(data).Field("_nozzleDiscStrength").SetValue(5);
+            Traverse.Create(data).Field("_exhaustExpansionRange").SetValue(new Vector2(-1, -1));
+            Traverse.Create(data).Field("_exhaustColorShock").SetValue("Default");
+            Traverse.Create(data).Field("_exhaustShockDirectionOffset").SetValue(0);
+            Traverse.Create(data).Field("_exhaustShockIntensity").SetValue(-1);
+            Traverse.Create(data).Field("_exhaustColorSoot").SetValue("Default");
+            Traverse.Create(data).Field("_exhaustSootIntensity").SetValue(0);
+            Traverse.Create(data).Field("_exhaustSootLength").SetValue(0);
+            Traverse.Create(data).Field("_hasSmoke").SetValue(true);
+            Traverse.Create(data).Field("_smokeColor").SetValue("Default");
+            Traverse.Create(data).Field("_smokeSpeedOverride").SetValue(1);
+            data.Script.InitializeExhaust();
         }
     }
 }

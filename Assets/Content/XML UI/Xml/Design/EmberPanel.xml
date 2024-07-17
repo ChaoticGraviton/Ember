@@ -17,7 +17,7 @@
 			<Button class="btn" width="150" onClick="SavePresetButtonClicked();"  tooltipPosition="Above" tooltip="Save a plume preset">
 				<TextMeshPro text="Save Preset" />
 			</Button>
-			<Button class="btn" width="150" onClick="ResetPlume();"  tooltipPosition="Above" tooltip="Reset the engine's plume to be default">
+			<Button class="btn" width="150" onClick="ResetPlumeButtonClicked();"  tooltipPosition="Above" tooltip="Reset the engine's plume to be default">
 				<TextMeshPro text="Reset Plume" />
 			</Button>
 			<!-- Visual Preview Settings -->

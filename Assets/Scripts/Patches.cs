@@ -1,12 +1,9 @@
 using Assets.Scripts.Design;
 using Assets.Scripts;
-using ModApi.Ui;
-using System.Collections.Generic;
 using Assets.Scripts.Craft.Parts.Modifiers.Propulsion;
 using Assets.Scripts.Design.Staging;
 using ModApi.Ui.Inspector;
 using UnityEngine.UI;
-using UnityEngine;
 
 namespace HarmonyLib
 {
@@ -53,7 +50,7 @@ namespace HarmonyLib
     public class CraftPerformanceAnalysisPatch
     {
         static public SliderModel altitudeSlider;
-        private static void sliderChanged(ItemModel model, string name, bool finished) => Mod.Instance.EmberFlyoutScript.OnCorrectionAltitudeSliderChanged(altitudeSlider.Value);
+        private static void sliderChanged(ItemModel model, string name, bool finished) => Mod.Instance.EmberFlyoutScript.SetAltitudeSlider(altitudeSlider.Value);
 
         [HarmonyPatch("CreateEnvironmentGroup")]
         [HarmonyPostfix]
@@ -79,6 +76,6 @@ namespace HarmonyLib
     [HarmonyPatch(typeof(Symmetry), "SetSymmetryMode")]
     class SymmetrySliceUpdate
     {
-        static void Postfix(Symmetry __instance) => Mod.Instance.EmberFlyoutScript.SymmetrySliceUpdated();
+        static void Postfix(Symmetry __instance) => Mod.Instance.EmberFlyoutScript.SetSymmetricExhaust(true);
     }
 }
