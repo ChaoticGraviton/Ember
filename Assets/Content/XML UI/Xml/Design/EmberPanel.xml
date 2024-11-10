@@ -106,10 +106,10 @@
 			<HorizontalLayout spacing="5" id="exhaust-expansion-range-inputfield" class="inspector-panel-row tooltip-row no-image fix" childForceExpandWidth="false" preferredHeight="30"  tooltipPosition="Above" tooltip="Edits the exhaustExpansionRange">
 				<TextMeshPro class="label input-field-label" preferredWidth="150" alignment="Left" text="Expansion Range"/>
 				<Panel flexibleWidth="1"/>
-				<TextMeshProInputField id="exhaust-expansion-range-x-input" contentType="DecimalNumber" preferredWidth="47" onEndEdit="TextBoxEdited(exhaust-expansion-range-x-input)" internalID="0" characterLimit="2">
+				<TextMeshProInputField id="exhaust-expansion-range-x-input" contentType="DecimalNumber" preferredWidth="70" onEndEdit="TextBoxEdited(exhaust-expansion-range-x-input)" internalID="0" characterLimit="6">
 					<TMP_Text alignment="Right" />
 				</TextMeshProInputField>
-				<TextMeshProInputField id="exhaust-expansion-range-y-input" contentType="DecimalNumber" preferredWidth="47" onEndEdit="TextBoxEdited(exhaust-expansion-range-y-input)" internalID="1" characterLimit="2">
+				<TextMeshProInputField id="exhaust-expansion-range-y-input" contentType="DecimalNumber" preferredWidth="70" onEndEdit="TextBoxEdited(exhaust-expansion-range-y-input)" internalID="1" characterLimit="6">
 					<TMP_Text alignment="Right" />
 				</TextMeshProInputField>
 			</HorizontalLayout>

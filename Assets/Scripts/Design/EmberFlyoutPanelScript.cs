@@ -62,7 +62,6 @@ namespace Assets.Scripts.Design
 
         public override void Initialize(DesignerUiScript designerUi)
         {
-            Debug.Log("Ember Initalize");
             base.Initialize(designerUi);
             Mod.Instance.EmberFlyout = Flyout;
             Mod.Instance.EmberFlyoutScript = this;
@@ -75,7 +74,6 @@ namespace Assets.Scripts.Design
 
         public override void LayoutRebuilt(ParseXmlResult parseResult)
         {
-            Debug.Log("Ember Layout Rebuilt");
             base.LayoutRebuilt(parseResult);
             _content = xmlLayout.GetElementById("content-root");
             _noEngine = xmlLayout.GetElementById("no-engine-selected-text");
