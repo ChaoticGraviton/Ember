@@ -2,7 +2,6 @@ using Assets.Scripts.Craft.Parts.Modifiers.Propulsion;
 using HarmonyLib;
 using ModApi.Craft;
 using ModApi.Craft.Parts;
-using System;
 using System.Collections.Generic;
 
 namespace Assets.Scripts.Design.Staging

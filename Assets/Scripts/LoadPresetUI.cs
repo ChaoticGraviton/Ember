@@ -1,4 +1,3 @@
-using Assets.Scripts;
 using Assets.Scripts.Menu.ListView;
 using ModApi.Ui;
 using System;

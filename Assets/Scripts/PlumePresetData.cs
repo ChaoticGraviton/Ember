@@ -1,5 +1,6 @@
 using Assets.Scripts.Menu.ListView;
 using System.Xml.Serialization;
+using UnityEngine;
 
 public class PlumePresetData
 {
@@ -149,7 +150,7 @@ public class PlumePresetData
 
         public void UpdateDetails(PlumePresetData.PlumeData plumeData)
         {
-            _description.Text = "Preset file location: " + plumeData.path;
+            _description.Text = $"Preset file location: {plumeData.path}";
             _mainColor.ValueText = plumeData.plumeMain.MainColor;
             _expandedColor.ValueText = plumeData.plumeMain.ExpandedColor ??= plumeData.plumeMain.MainColor;
             _tipColor.ValueText = plumeData.plumeMain.TipColor;
@@ -169,7 +170,7 @@ public class PlumePresetData
             _globalIntenisty.ValueText = plumeData.plumeMain.GloabalIntensity.ToString();
             _textureIntensity.ValueText = plumeData.plumeMain.TextureIntensity.ToString();
             _discIntensity.ValueText = plumeData.plumeMain.DiscIntensity.ToString();
-            _expansionRange.ValueText = plumeData.plumeMain.ExpansionRangeX.ToString() + ", " + plumeData.plumeMain.ExpansionRangeY.ToString();
+            _expansionRange.ValueText = new Vector2(plumeData.plumeMain.ExpansionRangeX, plumeData.plumeMain.ExpansionRangeY).ToString();
         }
     }
 }

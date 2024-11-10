@@ -1,5 +1,4 @@
 using Assets.Scripts.Design;
-using System.Xml.Serialization;
 using UnityEngine;
 using ModApi.Ui;
 using System.Xml.Linq;
@@ -21,6 +20,7 @@ namespace Assets.Scripts
 
         protected override void OnModInitialized()
         {
+            base.OnModInitialized();
             new Harmony("Ember").PatchAll();
             presetPath = Application.persistentDataPath + "/UserData/Ember/Presets/";
             System.IO.Directory.CreateDirectory(presetPath);
