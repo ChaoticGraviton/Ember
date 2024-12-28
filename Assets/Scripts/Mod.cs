@@ -3,8 +3,9 @@ using UnityEngine;
 using ModApi.Ui;
 using System.Xml.Linq;
 using System.Linq;
-using HarmonyLib;
 using Assets.Scripts.Design.Staging;
+using System.IO;
+using System;
 
 namespace Assets.Scripts
 {
@@ -20,11 +21,21 @@ namespace Assets.Scripts
 
         protected override void OnModInitialized()
         {
-            base.OnModInitialized();
-            new Harmony("Ember").PatchAll();
-            presetPath = Application.persistentDataPath + "/UserData/Ember/Presets/";
-            System.IO.Directory.CreateDirectory(presetPath);
-            Game.Instance.UserInterface.AddBuildUserInterfaceXmlAction(UserInterfaceIds.Design.DesignerUi, OnBuildDesignUi);
+            try
+            {
+                base.OnModInitialized();
+                HarmonyLoader.LoadHarmony();
+                presetPath = Application.persistentDataPath + "/UserData/Ember/Presets/";
+                Directory.CreateDirectory(presetPath);
+                Game.Instance.UserInterface.AddBuildUserInterfaceXmlAction(UserInterfaceIds.Design.DesignerUi, OnBuildDesignUi);
+            }
+            catch (Exception e)
+            {
+                string s = $"Mod {Mod.ModInfo.Name} failed to initalize. Verify all depencencies installed and enabled";
+                Game.Instance.UserInterface.CreateMessageDialog(s);
+                Debug.LogException(e);
+                throw new FileNotFoundException(s);
+            }
         }
 
         private void OnBuildDesignUi(BuildUserInterfaceXmlRequest request)

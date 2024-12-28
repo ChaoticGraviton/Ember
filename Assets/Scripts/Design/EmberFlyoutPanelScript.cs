@@ -380,7 +380,7 @@ namespace Assets.Scripts.Design
 
             if (hasEngineSelected)
             {
-                Traverse.Create(selectedRocketEngine.Data._hasSmoke).SetValue(smokeToggle);
+                selectedRocketEngine.Data._hasSmoke = smokeToggle;
                 UpdateSymmetricRocketEngines();
             }
         }
