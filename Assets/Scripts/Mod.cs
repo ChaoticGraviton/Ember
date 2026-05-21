@@ -31,7 +31,7 @@ namespace Assets.Scripts
             }
             catch (Exception e)
             {
-                string s = $"Mod {Mod.ModInfo.Name} failed to initalize. Verify all depencencies installed and enabled";
+                string s = $"Mod {Mod.ModInfo.Name} failed to initialize. Verify all dependencies installed and enabled";
                 Game.Instance.UserInterface.CreateMessageDialog(s);
                 Debug.LogException(e);
                 throw new FileNotFoundException(s);
