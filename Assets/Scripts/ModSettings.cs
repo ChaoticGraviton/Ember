@@ -66,7 +66,7 @@ namespace Assets.Scripts
                 ExhaustScale = 1,
                 ExhaustOffset = 0,
                 RimShade = fuelType.RimShade,
-                DiscIntensity = 5,
+                //DiscIntensity = 5,
                 ExpansionRangeX = -1,
                 ExpansionRangeY = -1
             };

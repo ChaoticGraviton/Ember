@@ -1,8 +1,10 @@
-using Assets.Scripts.Design;
 using Assets.Scripts;
 using Assets.Scripts.Craft.Parts.Modifiers.Propulsion;
+using Assets.Scripts.Design;
 using Assets.Scripts.Design.Staging;
+using ModApi.Ui;
 using ModApi.Ui.Inspector;
+using System.Collections.Generic;
 using UnityEngine.UI;
 
 namespace HarmonyLib
@@ -12,7 +14,7 @@ namespace HarmonyLib
     {
         [HarmonyPatch("Start")]
         [HarmonyPostfix]
-        public static void StartPostfix(DesignerScript __instance) => __instance._cycleFlyouts.Add(Mod.Instance.EmberFlyout);
+        public static void StartPostfix(DesignerScript __instance) => Traverse.Create(__instance).Field("_cycleFlyouts").GetValue<List<IFlyout>>().Add(Mod.Instance.EmberFlyout);
     }
 
     [HarmonyPatch(typeof(ExhaustSystemScript))]
@@ -56,7 +58,8 @@ namespace HarmonyLib
         [HarmonyPostfix]
         public static void CreateEnvironmentGroupPostfix(CraftPerformanceAnalysis __instance)
         {
-            altitudeSlider = __instance._altitudeSlider;
+            //altitudeSlider = __instance._altitudeSlider;
+            altitudeSlider = Traverse.Create(__instance).Field("_altitudeSlider").GetValue<SliderModel>();
             altitudeSlider.ValueChangedByUserInput += sliderChanged;
         }
 

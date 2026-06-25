@@ -269,7 +269,7 @@ namespace Assets.Scripts.Design
                 _inputScale.SetValue(selectedRocketEngine.Data.ExhaustScale.ToString());
                 _inputOffset.SetValue(selectedRocketEngine.Data.ExhaustOffset.ToString());
                 _inputRimshade.SetValue(SetFormatForDefault(selectedRocketEngine.Data.ExhaustRimShade.ToString()));
-                _inputDiscStrength.SetValue(selectedRocketEngine.Data.NozzleDiscStrength.ToString());
+                //_inputDiscStrength.SetValue(selectedRocketEngine.Data.NozzleDiscStrength.ToString());
                 _inputExpansionMin.SetValue(selectedRocketEngine.Data.ExhaustExpansionRange[0].ToString());
                 _inputExpansionMax.SetValue(selectedRocketEngine.Data.ExhaustExpansionRange[1].ToString());
 
@@ -380,7 +380,8 @@ namespace Assets.Scripts.Design
 
             if (hasEngineSelected)
             {
-                selectedRocketEngine.Data._hasSmoke = smokeToggle;
+                Traverse.Create(selectedRocketEngine.Data).Field("_hasSmoke").SetValue(smokeToggle);
+                //selectedRocketEngine.Data._hasSmoke = smokeToggle;
                 UpdateSymmetricRocketEngines();
             }
         }
@@ -416,7 +417,7 @@ namespace Assets.Scripts.Design
                     Traverse.Create(data).Field("_exhaustScale").SetValue(selectedRocketEngine.Data.ExhaustScale);
                     Traverse.Create(data).Field("_exhaustOffset").SetValue(selectedRocketEngine.Data.ExhaustOffset);
                     Traverse.Create(data).Field("_exhaustRimShade").SetValue(selectedRocketEngine.Data.ExhaustRimShade);
-                    Traverse.Create(data).Field("_nozzleDiscStrength").SetValue(selectedRocketEngine.Data.NozzleDiscStrength);
+                    //Traverse.Create(data).Field("_nozzleDiscStrength").SetValue(selectedRocketEngine.Data.NozzleDiscStrength);
                     Traverse.Create(data).Field("_exhaustExpansionRange").SetValue(selectedRocketEngine.Data.ExhaustExpansionRange);
                     Traverse.Create(data).Field("_exhaustColorShock").SetValue(ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorShock));
                     Traverse.Create(data).Field("_exhaustShockDirectionOffset").SetValue(selectedRocketEngine.Data.ExhaustShockDirectionOffset);
@@ -452,7 +453,7 @@ namespace Assets.Scripts.Design
                 ExhaustScale = selectedRocketEngine.Data.ExhaustScale,
                 ExhaustOffset = selectedRocketEngine.Data.ExhaustOffset,
                 RimShade = selectedRocketEngine.Data.ExhaustRimShade == -1f ? selectedRocketEngine.FuelSource.FuelType.RimShade : selectedRocketEngine.Data.ExhaustRimShade,
-                DiscIntensity = selectedRocketEngine.Data.NozzleDiscStrength,
+                //DiscIntensity = selectedRocketEngine.Data.NozzleDiscStrength,
                 ExpansionRangeX = selectedRocketEngine.Data.ExhaustExpansionRange[0],
                 ExpansionRangeY = selectedRocketEngine.Data.ExhaustExpansionRange[1]
             };
@@ -510,7 +511,7 @@ namespace Assets.Scripts.Design
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustScale").SetValue(plumeData.plumeMain.ExhaustScale);
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustOffset").SetValue(plumeData.plumeMain.ExhaustOffset);
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustRimShade").SetValue(plumeData.plumeMain.RimShade);
-            Traverse.Create(selectedRocketEngine.Data).Field("_nozzleDiscStrength").SetValue(plumeData.plumeMain.DiscIntensity);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_nozzleDiscStrength").SetValue(plumeData.plumeMain.DiscIntensity);
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustExpansionRange").SetValue(new Vector2(plumeData.plumeMain.ExpansionRangeX, plumeData.plumeMain.ExpansionRangeY));
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorShock").SetValue(plumeData.plumeDiamonds.DiamondColor);
             Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockDirectionOffset").SetValue(plumeData.plumeDiamonds.DiamondOffset);
