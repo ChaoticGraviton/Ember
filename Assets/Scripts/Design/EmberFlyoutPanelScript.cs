@@ -4,6 +4,7 @@ using ModApi.Craft.Parts;
 using ModApi.Design;
 using ModApi.Math;
 using ModApi.Ui;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
@@ -135,17 +136,25 @@ namespace Assets.Scripts.Design
 
         public void ResetPlumeButtonClicked()
         {
-            if (Game.Instance.Designer.SelectedPart.SymmetrySlice != null)
+            MessageDialogScript dialog = Game.Instance.UserInterface.CreateMessageDialog(MessageDialogType.OkayCancel);
+            dialog.MessageText = "Do you wish to reset the current plume?";
+            dialog.UseDangerButtonStyle = true;
+            dialog.OkayClicked += (m =>
             {
+                m.Close();
+                ResetPlume();
+            });
+        }
+
+        private void ResetPlume()
+        {
+            if (Game.Instance.Designer.SelectedPart.SymmetrySlice != null)
                 Symmetry.ExecuteOnSymmetricPartModifiers(selectedRocketEngine.Data, true, delegate (RocketEngineData data)
                 {
                     ResetPlume(data);
                 });
-            }
             else
-            {
                 ResetPlume(selectedRocketEngine.Data);
-            }
             UpdateFlyoutDisplayValues();
         }
 
