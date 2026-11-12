@@ -189,6 +189,13 @@
 					<TMP_Text alignment="Right" />
 				</TextMeshProInputField>
 			</HorizontalLayout>
+			<HorizontalLayout id="smoke-offset" class="inspector-panel-row tooltip-row no-image fix" childForceExpandWidth="false" preferredHeight="30"  tooltipPosition="Above" tooltip="Edits the smokeOffset">
+				<TextMeshPro class="label input-field-label" preferredWidth="150" alignment="Left" text="Smoke Offset"/>
+				<Panel flexibleWidth="1"/>
+				<TextMeshProInputField id="smoke-offset-input" contentType="DecimalNumber" preferredWidth="93" onEndEdit="TextBoxEdited(smoke-offset-input)" internalID="11" characterLimit="6">
+					<TMP_Text alignment="Right" />
+				</TextMeshProInputField>
+			</HorizontalLayout>
 		</VerticalLayout>
 	</VerticalScrollView>
 </XmlLayout>

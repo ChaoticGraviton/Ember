@@ -4,7 +4,6 @@ using ModApi.Craft.Parts;
 using ModApi.Design;
 using ModApi.Math;
 using ModApi.Ui;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
@@ -12,6 +11,7 @@ using TMPro;
 using UI.Xml;
 using UnityEngine;
 using UnityEngine.UI;
+using static PlumePresetData;
 
 namespace Assets.Scripts.Design
 {
@@ -44,6 +44,7 @@ namespace Assets.Scripts.Design
         XmlElement _panelSootColor;
         XmlElement _toggleSmoke;
         XmlElement _inputSmokeSpeed;
+        XmlElement _inputSmokeOffset;
         XmlElement _panelSmokeColor;
         XmlElement _buttonSmokeColor;
         public Slider throttleSlider;
@@ -51,13 +52,39 @@ namespace Assets.Scripts.Design
         private TextMeshProUGUI throttleDisplayValue;
         private TextMeshProUGUI altitudeDisplayValue;
         CraftPerformanceAnalysis performanceAnalizer;
-        public static RocketEngineScript selectedRocketEngine;
+
+
+        //public static RocketEngineScript selectedRocketEngine;
+
+        public static ExhaustSetting selectedEngine;
+
         private XmlSerializer _xmlSerializer;
         private FileStream _fileStream;
-        private readonly List<string> textFieldList = new() { "_exhaustScale", "_exhaustOffset", "_exhaustRimShade", "_exhaustShockDirectionOffset", "_exhaustShockIntensity", "_exhaustSootIntensity", "_exhaustSootLength", "_smokeSpeedOverride", "_exhaustGlobalIntensity", "_exhaustTextureStrength", "_nozzleDiscStrength" };
-        private readonly Dictionary<string, string> fieldUpdateReferences = new() { { "Base", "_exhaustColor" }, { "Expanded", "_exhaustColorExpanded" }, { "Tip", "_exhaustColorTip" }, { "Flame", "_exhaustColorFlame" }, { "Shock", "_exhaustColorShock" }, { "Soot", "_exhaustColorSoot" }, { "Smoke", "_smokeColor" } };
+        private readonly List<string> textFieldList = new() {
+            ExhaustFields.Scale,
+            ExhaustFields.Offset,
+            ExhaustFields.RimShade,
+            ExhaustFields.ShockDirectionOffset,
+            ExhaustFields.ShockIntensity,
+            ExhaustFields.SootIntensity,
+            ExhaustFields.SootLength,
+            ExhaustFields.SmokeSpeed,
+            ExhaustFields.GlobalIntensity,
+            ExhaustFields.TextureStrength,
+            ExhaustFields.NozzleDiscStrength,
+            ExhaustFields.SmokeOffset
+        };
+        private readonly Dictionary<string, string> fieldUpdateReferences = new() {
+            { "Base", ExhaustFields.Color },
+            { "Expanded", ExhaustFields.ColorExpanded },
+            { "Tip", ExhaustFields.ColorTip },
+            { "Flame", ExhaustFields.ColorFlame },
+            { "Shock", ExhaustFields.ColorShock },
+            { "Soot", ExhaustFields.ColorSoot},
+            { "Smoke", ExhaustFields.ColorSmoke }
+        };
         private Dictionary<string, Color> colorReferences = new() { };
-        public bool hasEngineSelected => selectedRocketEngine != null;
+        public bool hasEngineSelected => (selectedEngine?.IsJet ?? false) || (selectedEngine?.IsRocket ?? false);
         private bool smokeEnabled;
         private bool sootEnabled;
 
@@ -103,6 +130,7 @@ namespace Assets.Scripts.Design
             _buttonSmokeColor = xmlLayout.GetElementById("smokeColor-Button");
             _colorSmoke = xmlLayout.GetElementById("smoke-color");
             _inputSmokeSpeed = xmlLayout.GetElementById("smoke-speed-input");
+            _inputSmokeOffset = xmlLayout.GetElementById("smoke-offset-input");
             _panelSmokeColor = xmlLayout.GetElementById("smokeColor");
             AdjustableThrottle.adjustableThrottleSlider = throttleSlider = xmlLayout.GetElementById<Slider>("preview-throttle");
             throttleDisplayValue = xmlLayout.GetElementById<TextMeshProUGUI>("preview-throttle-displayValue");
@@ -149,20 +177,23 @@ namespace Assets.Scripts.Design
         private void ResetPlume()
         {
             if (Game.Instance.Designer.SelectedPart.SymmetrySlice != null)
-                Symmetry.ExecuteOnSymmetricPartModifiers(selectedRocketEngine.Data, true, delegate (RocketEngineData data)
-                {
-                    ResetPlume(data);
-                });
+                ExhaustSetting.ExecuteOnSymmetricEngines(selectedEngine, true, engine => ResetPlume(engine));
+
+            //Symmetry.ExecuteOnSymmetricPartModifiers(selectedRocketEngine.Data, true, delegate (RocketEngineData data)
+            //{
+            //    ResetPlume(data);
+            //});
             else
-                ResetPlume(selectedRocketEngine.Data);
+                ResetPlume(selectedEngine);
             UpdateFlyoutDisplayValues();
         }
 
         private void OnFlyoutOpening(IFlyout flyout)
         {
-            if (_designer.SelectedPart?.GetModifier<RocketEngineScript>() != null)
+
+            if (IsPartEngineNull(_designer.SelectedPart))
             {
-                selectedRocketEngine = _designer.SelectedPart.GetModifier<RocketEngineScript>();
+                selectedEngine = new(_designer.SelectedPart);
                 SetSymmetricExhaust(true);
                 SetActiveForSelectedEngine(true);
                 UpdateFlyoutDisplayValues();
@@ -176,18 +207,25 @@ namespace Assets.Scripts.Design
 
         private void OnFlyoutClosing(IFlyout flyout)
         {
+
             if (DesignerUi.SelectedFlyout?.Title == "Part Properties")
             {
-                if (_designer.SelectedPart?.GetModifier<RocketEngineScript>() != null)
+                if (IsPartEngineNull(_designer.SelectedPart))
                 {
                     SetSymmetricExhaust(false);
-                    _designer.SelectedPart.GetModifier<RocketEngineScript>().PreviewExhaust = true;
+                    ExhaustSetting temp = new(_designer.SelectedPart);
+                    temp.SetExhaustPreview(true);
+                    //_designer.SelectedPart.GetModifier<RocketEngineScript>().PreviewExhaust = true;
+
                 }
             }
             else
                 SetSymmetricExhaust(false);
+
+            selectedEngine = null;
         }
 
+        // OnSelectedPartChanged
         private void OnSelectedPartChanged(IPartScript oldPart, IPartScript newPart)
         {
             if (!Flyout.IsOpen)
@@ -196,13 +234,14 @@ namespace Assets.Scripts.Design
             if (newPart != null) // Hotkey to deselect part
             {
                 if (hasEngineSelected)
-                {
                     SetSymmetricExhaust(false);
-                }
-                selectedRocketEngine = null;
-                if (newPart.GetModifier<RocketEngineScript>() != null)
+
+                selectedEngine = null;
+                ExhaustSetting engine = new(newPart);
+
+                if (engine.IsRocket || engine.IsJet)
                 {
-                    selectedRocketEngine = newPart.GetModifier<RocketEngineScript>();
+                    selectedEngine = engine;
                     SetSymmetricExhaust(true);
                 }
 
@@ -215,15 +254,17 @@ namespace Assets.Scripts.Design
             }
             else if (oldPart != null)
             {
-                if (oldPart.GetModifier<RocketEngineScript>() != null)
+                ExhaustSetting oldEngine = new(oldPart);
+
+                if (oldEngine.IsRocket || oldEngine.IsJet)
                 {
                     SetActiveForSelectedEngine(false);
-                    SetSymmetricExhaust(false, true, oldPart.GetModifier<RocketEngineScript>());
+                    SetSymmetricExhaust(false, true, oldPart);
                 }
             }
             else
             {
-                SetSymmetricExhaust(false, true, selectedRocketEngine);
+                SetSymmetricExhaust(false, true, selectedEngine.Part);
                 SetActiveForSelectedEngine(false);
             }
         }
@@ -244,23 +285,34 @@ namespace Assets.Scripts.Design
 
         public void UpdateAltitudeSliderDisplay() => SetAltitudeSlider(emberAltitudeSlider.value);
 
-        public void SetSymmetricExhaust(bool enabled, bool isOldPart = false, RocketEngineScript engine = null)
+        public void SetSymmetricExhaust(bool enabled, bool isOldPart = false, IPartScript engine = null)
         {
+            // TODO : should refactor into passing the ExhaustSetting through, and not assigning the selected engine to a old part we don't care about
+
             if (isOldPart)
-                selectedRocketEngine = engine;
+                selectedEngine = new(engine);
+            //selectedRocketEngine = engine;
             if (hasEngineSelected)
             {
-                selectedRocketEngine.PreviewExhaust = enabled;
-                Symmetry.ExecuteOnSymmetricPartModifiers(selectedRocketEngine.Data, true, delegate (RocketEngineData data)
+                ExhaustSetting.ExecuteOnSymmetricEngines(selectedEngine, true, engine =>
                 {
-                    data.Script.PreviewExhaust = enabled;
+                    engine.SetExhaustPreview(enabled);
                 });
+                //selectedEngine.SetExhaustPreviewSymmetric(enabled);
+
+                //selectedRocketEngine.PreviewExhaust = enabled;
+                //Symmetry.ExecuteOnSymmetricPartModifiers(selectedRocketEngine.Data, true, delegate (RocketEngineData data)
+                //{
+                //    data.Script.PreviewExhaust = enabled;
+                //});
             }
         }
 
         private void SetActiveForSelectedEngine(bool engineSelected)
         {
             _content.SetActive(engineSelected);
+            _inputDiscStrength.parentElement.SetActive(selectedEngine?.IsJet ?? false && engineSelected);
+            _inputSmokeOffset.parentElement.SetActive(selectedEngine?.IsRocket ?? false && (selectedEngine?.HasSmoke ?? false) && engineSelected);
             _noEngine.SetActive(!engineSelected);
         }
 
@@ -269,46 +321,48 @@ namespace Assets.Scripts.Design
             if (hasEngineSelected)
             {
                 // Plume Editing
-                setColorDisplays(_colorMain, "color", "tooltip", selectedRocketEngine.Data.ExhaustColor);
-                setColorDisplays(_colorExpanded, "color", "tooltip", selectedRocketEngine.Data.ExhaustColorExpanded);
-                setColorDisplays(_colorTip, "color", "tooltip", selectedRocketEngine.Data.ExhaustColorTip);
-                setColorDisplays(_colorFlame, "color", "tooltip", selectedRocketEngine.Data.ExhaustColorFlame);
-                _inputGlobalIntensity.SetValue(SetFormatForDefault(selectedRocketEngine.Data.ExhaustGlobalIntensity.ToString()));
-                _inputTextureStrength.SetValue(selectedRocketEngine.Data.ExhaustTextureStrength.ToString());
-                _inputScale.SetValue(selectedRocketEngine.Data.ExhaustScale.ToString());
-                _inputOffset.SetValue(selectedRocketEngine.Data.ExhaustOffset.ToString());
-                _inputRimshade.SetValue(SetFormatForDefault(selectedRocketEngine.Data.ExhaustRimShade.ToString()));
-                //_inputDiscStrength.SetValue(selectedRocketEngine.Data.NozzleDiscStrength.ToString());
-                _inputExpansionMin.SetValue(selectedRocketEngine.Data.ExhaustExpansionRange[0].ToString());
-                _inputExpansionMax.SetValue(selectedRocketEngine.Data.ExhaustExpansionRange[1].ToString());
+                setColorDisplays(_colorMain, "color", "tooltip", selectedEngine.ExhaustColor);
+                setColorDisplays(_colorExpanded, "color", "tooltip", selectedEngine.ExhaustColorExpanded);
+                setColorDisplays(_colorTip, "color", "tooltip", selectedEngine.ExhaustColorTip);
+                setColorDisplays(_colorFlame, "color", "tooltip", selectedEngine.ExhaustColorFlame);
+                _inputGlobalIntensity.SetValue(SetFormatForDefault(selectedEngine.ExhaustGlobalIntensity.ToString()));
+                _inputTextureStrength.SetValue(selectedEngine.ExhaustTextureStrength.ToString());
+                _inputScale.SetValue(selectedEngine.ExhaustScale.ToString());
+                _inputOffset.SetValue(selectedEngine.ExhaustOffset.ToString());
+                _inputRimshade.SetValue(SetFormatForDefault(selectedEngine.ExhaustRimShade.ToString()));
+                _inputDiscStrength.SetValue(selectedEngine.NozzleDiscStrength.ToString());
+                _inputExpansionMin.SetValue(selectedEngine.ExhaustExpansionRange[0].ToString());
+                _inputExpansionMax.SetValue(selectedEngine.ExhaustExpansionRange[1].ToString());
 
                 // Shock Editing
-                setColorDisplays(_colorDiamond, "color", "tooltip", selectedRocketEngine.Data.ExhaustColorShock);
-                _inputDiamondOffset.SetValue(selectedRocketEngine.Data.ExhaustShockDirectionOffset.ToString());
-                _inputDiamondIntensity.SetValue(SetFormatForDefault(selectedRocketEngine.Data.ExhaustShockIntensity.ToString()));
+                setColorDisplays(_colorDiamond, "color", "tooltip", selectedEngine.ExhaustColorShock);
+                _inputDiamondOffset.SetValue(selectedEngine.ExhaustShockDirectionOffset.ToString());
+                _inputDiamondIntensity.SetValue(SetFormatForDefault(selectedEngine.ExhaustShockIntensity.ToString()));
 
                 // Soot Editing
-                sootEnabled = selectedRocketEngine.Data.ExhaustSootIntensity > 0;
+                sootEnabled = selectedEngine.ExhaustSootIntensity > 0;
                 _toggleSoot.SetValue(sootEnabled.ToString());
                 _buttonSootColor.SetActive(sootEnabled);
                 _inputSootIntensity.parentElement.SetActive(sootEnabled);
                 _inputSootLength.parentElement.SetActive(sootEnabled);
                 _panelSootColor.SetActive(sootEnabled);
-                setColorDisplays(_colorSoot, "color", "tooltip", selectedRocketEngine.Data.ExhaustColorSoot);
-                _inputSootIntensity.SetValue(selectedRocketEngine.Data.ExhaustSootIntensity.ToString());
-                _inputSootLength.SetValue(selectedRocketEngine.Data.ExhaustSootLength.ToString());
+                setColorDisplays(_colorSoot, "color", "tooltip", selectedEngine.ExhaustColorSoot);
+                _inputSootIntensity.SetValue(selectedEngine.ExhaustSootIntensity.ToString());
+                _inputSootLength.SetValue(selectedEngine.ExhaustSootLength.ToString());
 
                 // Smoke Editing
-                smokeEnabled = selectedRocketEngine.Data.HasSmoke;
+                smokeEnabled = selectedEngine.HasSmoke;
                 _toggleSmoke.SetValue(smokeEnabled.ToString());
                 _buttonSmokeColor.SetActive(smokeEnabled);
                 _inputSmokeSpeed.parentElement.SetActive(smokeEnabled);
+                _inputSmokeOffset.parentElement.SetActive(!selectedEngine.IsJet && smokeEnabled);
                 _panelSmokeColor.SetActive(smokeEnabled);
-                setColorDisplays(_colorSmoke, "color", "tooltip", selectedRocketEngine.Data.SmokeColor);
-                _inputSmokeSpeed.SetValue(selectedRocketEngine.Data.SmokeSpeed.ToString());
+                setColorDisplays(_colorSmoke, "color", "tooltip", selectedEngine.SmokeColor);
+                _inputSmokeSpeed.SetValue(selectedEngine.SmokeSpeed.ToString());
+                _inputSmokeOffset.SetValue(selectedEngine.SmokeOffset.ToString());
 
                 // Updates the engine exhaust
-                selectedRocketEngine.Data.Script.InitializeExhaust();
+                selectedEngine.InitializeExhaust();
             }
         }
 
@@ -329,13 +383,13 @@ namespace Assets.Scripts.Design
 
         private void UpdateColorRefValues()
         {
-            colorReferences["Base"] = selectedRocketEngine.Data.ExhaustColor;
-            colorReferences["Expanded"] = selectedRocketEngine.Data.ExhaustColorExpanded;
-            colorReferences["Tip"] = selectedRocketEngine.Data.ExhaustColorTip;
-            colorReferences["Flame"] = selectedRocketEngine.Data.ExhaustColorFlame;
-            colorReferences["Shock"] = selectedRocketEngine.Data.ExhaustColorShock;
-            colorReferences["Soot"] = selectedRocketEngine.Data.ExhaustColorSoot;
-            colorReferences["Smoke"] = selectedRocketEngine.Data.SmokeColor;
+            colorReferences["Base"] = selectedEngine.ExhaustColor;
+            colorReferences["Expanded"] = selectedEngine.ExhaustColorExpanded;
+            colorReferences["Tip"] = selectedEngine.ExhaustColorTip;
+            colorReferences["Flame"] = selectedEngine.ExhaustColorFlame;
+            colorReferences["Shock"] = selectedEngine.ExhaustColorShock;
+            colorReferences["Soot"] = selectedEngine.ExhaustColorSoot;
+            colorReferences["Smoke"] = selectedEngine.SmokeColor;
         }
 
         private void OnExhaustColorChanged(string type)
@@ -357,9 +411,10 @@ namespace Assets.Scripts.Design
 
         private void UpdatePlumeColors(string updateField, string color)
         {
-            Traverse.Create(selectedRocketEngine.Data).Field(updateField).SetValue("#" + color);
+            selectedEngine.Set(updateField, "#" + color);
+            //Traverse.Create(selectedRocketEngine.Data).Field(updateField).SetValue("#" + color);
             UpdateSymmetricRocketEngines();
-            selectedRocketEngine.Data.Script.InitializeExhaust();
+            selectedEngine.InitializeExhaust();
         }
 
         private void OnSootToggleClicked()
@@ -373,8 +428,8 @@ namespace Assets.Scripts.Design
 
             if (hasEngineSelected)
             {
-                Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootIntensity").SetValue(sootToggle ? 1 : 0);
-                _inputSootIntensity.SetText(selectedRocketEngine.Data.ExhaustSootIntensity.ToString());
+                selectedEngine.Set(ExhaustFields.SootIntensity, sootToggle ? 1 : 0);
+                _inputSootIntensity.SetText(selectedEngine.ExhaustSootIntensity.ToString());
                 UpdateSymmetricRocketEngines();
             }
         }
@@ -384,12 +439,13 @@ namespace Assets.Scripts.Design
             // Disables the visibility of the elements in the UI
             bool smokeToggle = _toggleSmoke.GetValue().ToBoolean();
             _inputSmokeSpeed.parentElement.SetActive(smokeToggle);
+            _inputSmokeOffset.parentElement.SetActive(!selectedEngine.IsJet && smokeToggle);
             _buttonSmokeColor.SetActive(smokeToggle);
             _panelSmokeColor.SetActive(smokeToggle);
 
             if (hasEngineSelected)
             {
-                Traverse.Create(selectedRocketEngine.Data).Field("_hasSmoke").SetValue(smokeToggle);
+                selectedEngine.Set(ExhaustFields.HasSmoke, smokeToggle);
                 //selectedRocketEngine.Data._hasSmoke = smokeToggle;
                 UpdateSymmetricRocketEngines();
             }
@@ -399,13 +455,14 @@ namespace Assets.Scripts.Design
         {
             if (boxID.Contains("exhaust-expansion-range"))
             {
-                Vector2 expasionRangeValue = selectedRocketEngine.Data.ExhaustExpansionRange;
+                Vector2 expasionRangeValue = selectedEngine.ExhaustExpansionRange;
                 expasionRangeValue[xmlLayout.GetElementById(boxID).GetAttribute("internalID").ToInt()] = xmlLayout.GetElementById(boxID).GetValue().ToFloat();
-                Traverse.Create(selectedRocketEngine.Data).Field("_exhaustExpansionRange").SetValue(expasionRangeValue);
+                //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustExpansionRange").SetValue(expasionRangeValue);
+                selectedEngine.Set(ExhaustFields.ExpansionRange, expasionRangeValue);
             }
             else
             {
-                Traverse.Create(selectedRocketEngine.Data).Field(textFieldList[xmlLayout.GetElementById(boxID).GetAttribute("internalID").ToInt()]).SetValue(xmlLayout.GetElementById(boxID).GetValue().ToFloat());
+                selectedEngine.Set(textFieldList[xmlLayout.GetElementById(boxID).GetAttribute("internalID").ToInt()], xmlLayout.GetElementById(boxID).GetValue().ToFloat());
             }
             UpdateFlyoutDisplayValues();
             UpdateSymmetricRocketEngines();
@@ -415,32 +472,57 @@ namespace Assets.Scripts.Design
         {
             if (Game.Instance.Designer.SelectedPart.SymmetrySlice != null)
             {
-                Symmetry.ExecuteOnSymmetricPartModifiers(selectedRocketEngine.Data, true, delegate (RocketEngineData data)
+                ExhaustSetting.ExecuteOnSymmetricEngines(selectedEngine, true, engine =>
                 {
-                    Traverse.Create(data).Field("_exhaustColor").SetValue(ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColor));
-                    Traverse.Create(data).Field("_exhaustColorExpanded").SetValue(ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorExpanded));
-                    Traverse.Create(data).Field("_exhaustColorTip").SetValue(ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorTip));
-                    Traverse.Create(data).Field("_exhaustColorFlame").SetValue(ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorFlame));
-                    Traverse.Create(data).Field("_exhaustGlobalIntensity").SetValue(selectedRocketEngine.Data.ExhaustGlobalIntensity);
-                    Traverse.Create(data).Field("_exhaustTextureStrength").SetValue(selectedRocketEngine.Data.ExhaustTextureStrength);
-                    Traverse.Create(data).Field("_exhaustScale").SetValue(selectedRocketEngine.Data.ExhaustScale);
-                    Traverse.Create(data).Field("_exhaustOffset").SetValue(selectedRocketEngine.Data.ExhaustOffset);
-                    Traverse.Create(data).Field("_exhaustRimShade").SetValue(selectedRocketEngine.Data.ExhaustRimShade);
-                    //Traverse.Create(data).Field("_nozzleDiscStrength").SetValue(selectedRocketEngine.Data.NozzleDiscStrength);
-                    Traverse.Create(data).Field("_exhaustExpansionRange").SetValue(selectedRocketEngine.Data.ExhaustExpansionRange);
-                    Traverse.Create(data).Field("_exhaustColorShock").SetValue(ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorShock));
-                    Traverse.Create(data).Field("_exhaustShockDirectionOffset").SetValue(selectedRocketEngine.Data.ExhaustShockDirectionOffset);
-                    Traverse.Create(data).Field("_exhaustShockIntensity").SetValue(selectedRocketEngine.Data.ExhaustShockIntensity);
-                    Traverse.Create(data).Field("_exhaustColorSoot").SetValue(ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorSoot));
-                    Traverse.Create(data).Field("_exhaustSootIntensity").SetValue(selectedRocketEngine.Data.ExhaustSootIntensity);
-                    Traverse.Create(data).Field("_exhaustSootLength").SetValue(selectedRocketEngine.Data.ExhaustSootLength);
-                    Traverse.Create(data).Field("_hasSmoke").SetValue(selectedRocketEngine.Data.HasSmoke);
-                    Traverse.Create(data).Field("_smokeColor").SetValue(ColorToHexAlpha(selectedRocketEngine.Data.SmokeColor));
-                    Traverse.Create(data).Field("_smokeSpeedOverride").SetValue(selectedRocketEngine.Data.SmokeSpeed);
-                    data.Script.InitializeExhaust();
+                    engine.setExhaustColor(ColorToHexAlpha(selectedEngine.ExhaustColor));
+                    engine.setExhaustExpandedColor(ColorToHexAlpha(selectedEngine.ExhaustColorExpanded));
+                    engine.setExhaustTipColor(ColorToHexAlpha(selectedEngine.ExhaustColorTip));
+                    engine.setExhaustFlameColor(ColorToHexAlpha(selectedEngine.ExhaustColorFlame));
+                    engine.ExhaustGlobalIntensity = selectedEngine.ExhaustGlobalIntensity;
+                    engine.ExhaustTextureStrength = selectedEngine.ExhaustTextureStrength;
+                    engine.ExhaustScale = selectedEngine.ExhaustScale;
+                    engine.ExhaustOffset = selectedEngine.ExhaustOffset;
+                    engine.ExhaustRimShade = selectedEngine.ExhaustRimShade;
+                    engine.ExhaustExpansionRange = selectedEngine.ExhaustExpansionRange;
+                    engine.setExhaustShockColor(ColorToHexAlpha(selectedEngine.ExhaustColorShock));
+                    engine.ExhaustShockDirectionOffset = selectedEngine.ExhaustShockDirectionOffset;
+                    engine.ExhaustShockIntensity = selectedEngine.ExhaustShockIntensity;
+                    engine.setExhaustSootColor(ColorToHexAlpha(selectedEngine.ExhaustColorSoot));
+                    engine.ExhaustSootIntensity = selectedEngine.ExhaustSootIntensity;
+                    engine.ExhaustSootLength = selectedEngine.ExhaustSootLength;
+                    engine.HasSmoke = selectedEngine.HasSmoke;
+                    engine.setExhaustSmokeColor(ColorToHexAlpha(selectedEngine.SmokeColor));
+                    engine.SmokeSpeed = selectedEngine.SmokeSpeed;
+                    engine.SmokeOffset = selectedEngine.SmokeOffset;
+                    engine.NozzleDiscStrength = selectedEngine.NozzleDiscStrength;
+                    engine.InitializeExhaust();
                 });
+                //Symmetry.ExecuteOnSymmetricPartModifiers(selectedRocketEngine.Data, true, delegate (RocketEngineData data)
+                //{
+                //    Traverse.Create(data).Field("_exhaustColor").SetValue(ColorToHexAlpha(selectedEngine.ExhaustColor));
+                //    Traverse.Create(data).Field("_exhaustColorExpanded").SetValue(ColorToHexAlpha(selectedEngine.ExhaustColorExpanded));
+                //    Traverse.Create(data).Field("_exhaustColorTip").SetValue(ColorToHexAlpha(selectedEngine.ExhaustColorTip));
+                //    Traverse.Create(data).Field("_exhaustColorFlame").SetValue(ColorToHexAlpha(selectedEngine.ExhaustColorFlame));
+                //    Traverse.Create(data).Field("_exhaustGlobalIntensity").SetValue(selectedEngine.ExhaustGlobalIntensity);
+                //    Traverse.Create(data).Field("_exhaustTextureStrength").SetValue(selectedEngine.ExhaustTextureStrength);
+                //    Traverse.Create(data).Field("_exhaustScale").SetValue(selectedEngine.ExhaustScale);
+                //    Traverse.Create(data).Field("_exhaustOffset").SetValue(selectedEngine.ExhaustOffset);
+                //    Traverse.Create(data).Field("_exhaustRimShade").SetValue(selectedEngine.ExhaustRimShade);
+                //    //Traverse.Create(data).Field("_nozzleDiscStrength").SetValue(selectedRocketEngine.Data.NozzleDiscStrength);
+                //    Traverse.Create(data).Field("_exhaustExpansionRange").SetValue(selectedEngine.ExhaustExpansionRange);
+                //    Traverse.Create(data).Field("_exhaustColorShock").SetValue(ColorToHexAlpha(selectedEngine.ExhaustColorShock));
+                //    Traverse.Create(data).Field("_exhaustShockDirectionOffset").SetValue(selectedEngine.ExhaustShockDirectionOffset);
+                //    Traverse.Create(data).Field("_exhaustShockIntensity").SetValue(selectedEngine.ExhaustShockIntensity);
+                //    Traverse.Create(data).Field("_exhaustColorSoot").SetValue(ColorToHexAlpha(selectedEngine.ExhaustColorSoot));
+                //    Traverse.Create(data).Field("_exhaustSootIntensity").SetValue(selectedEngine.ExhaustSootIntensity);
+                //    Traverse.Create(data).Field("_exhaustSootLength").SetValue(selectedEngine.ExhaustSootLength);
+                //    Traverse.Create(data).Field("_hasSmoke").SetValue(selectedEngine.HasSmoke);
+                //    Traverse.Create(data).Field("_smokeColor").SetValue(ColorToHexAlpha(selectedEngine.SmokeColor));
+                //    Traverse.Create(data).Field("_smokeSpeedOverride").SetValue(selectedEngine.SmokeSpeed);
+                //    data.Script.InitializeExhaust();
+                //});
             }
-            else selectedRocketEngine.Data.Script.InitializeExhaust();
+            else selectedEngine.InitializeExhaust();
         }
 
         private void OnSavePlumePreset(InputDialogScript inputDialog)
@@ -453,36 +535,36 @@ namespace Assets.Scripts.Design
             };
             plumeData.plumeMain = new PlumePresetData.PlumeMain()
             {
-                MainColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColor),
-                ExpandedColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorExpanded),
-                TipColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorTip),
-                FlameColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorFlame),
-                GloabalIntensity = selectedRocketEngine.Data.ExhaustGlobalIntensity == -1f ? selectedRocketEngine.FuelSource.FuelType.GlobalIntensity : selectedRocketEngine.Data.ExhaustGlobalIntensity,
-                TextureIntensity = selectedRocketEngine.Data.ExhaustTextureStrength,
-                ExhaustScale = selectedRocketEngine.Data.ExhaustScale,
-                ExhaustOffset = selectedRocketEngine.Data.ExhaustOffset,
-                RimShade = selectedRocketEngine.Data.ExhaustRimShade == -1f ? selectedRocketEngine.FuelSource.FuelType.RimShade : selectedRocketEngine.Data.ExhaustRimShade,
-                //DiscIntensity = selectedRocketEngine.Data.NozzleDiscStrength,
-                ExpansionRangeX = selectedRocketEngine.Data.ExhaustExpansionRange[0],
-                ExpansionRangeY = selectedRocketEngine.Data.ExhaustExpansionRange[1]
+                MainColor = ColorToHexAlpha(selectedEngine.ExhaustColor),
+                ExpandedColor = ColorToHexAlpha(selectedEngine.ExhaustColorExpanded),
+                TipColor = ColorToHexAlpha(selectedEngine.ExhaustColorTip),
+                FlameColor = ColorToHexAlpha(selectedEngine.ExhaustColorFlame),
+                GloabalIntensity = selectedEngine.ExhaustGlobalIntensity == -1f ? selectedEngine.FuelSource.FuelType.GlobalIntensity : selectedEngine.ExhaustGlobalIntensity,
+                TextureIntensity = selectedEngine.ExhaustTextureStrength,
+                ExhaustScale = selectedEngine.ExhaustScale,
+                ExhaustOffset = selectedEngine.ExhaustOffset,
+                RimShade = selectedEngine.ExhaustRimShade == -1f ? selectedEngine.FuelSource.FuelType.RimShade : selectedEngine.ExhaustRimShade,
+                DiscIntensity = selectedEngine.NozzleDiscStrength,
+                ExpansionRangeX = selectedEngine.ExhaustExpansionRange[0],
+                ExpansionRangeY = selectedEngine.ExhaustExpansionRange[1]
             };
             plumeData.plumeDiamonds = new PlumePresetData.PlumeDiamonds()
             {
-                DiamondColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorShock),
-                DiamondOffset = selectedRocketEngine.Data.ExhaustShockDirectionOffset,
-                DiamondIntensity = selectedRocketEngine.Data.ExhaustShockIntensity == -1f ? selectedRocketEngine.FuelSource.FuelType.ShockIntensity : selectedRocketEngine.Data.ExhaustShockIntensity
+                DiamondColor = ColorToHexAlpha(selectedEngine.ExhaustColorShock),
+                DiamondOffset = selectedEngine.ExhaustShockDirectionOffset,
+                DiamondIntensity = selectedEngine.ExhaustShockIntensity == -1f ? selectedEngine.FuelSource.FuelType.ShockIntensity : selectedEngine.ExhaustShockIntensity
             };
             plumeData.plumeSoot = new PlumePresetData.PlumeSoot()
             {
-                SootColor = ColorToHexAlpha(selectedRocketEngine.Data.ExhaustColorSoot),
-                SootIntensity = selectedRocketEngine.Data.ExhaustSootIntensity,
-                SootLength = selectedRocketEngine.Data.ExhaustSootLength
+                SootColor = ColorToHexAlpha(selectedEngine.ExhaustColorSoot),
+                SootIntensity = selectedEngine.ExhaustSootIntensity,
+                SootLength = selectedEngine.ExhaustSootLength
             };
             plumeData.engineSmoke = new PlumePresetData.EngineSmoke()
             {
-                HasSmoke = selectedRocketEngine.Data.HasSmoke,
-                SmokeColor = ColorToHexAlpha(selectedRocketEngine.Data.SmokeColor),
-                SmokeSpeed = selectedRocketEngine.Data.SmokeSpeed,
+                HasSmoke = selectedEngine.HasSmoke,
+                SmokeColor = ColorToHexAlpha(selectedEngine.SmokeColor),
+                SmokeSpeed = selectedEngine.SmokeSpeed,
             };
             var newPresetFilePath = inputDialog.InputText + ".xml";
             if (File.Exists(Mod.Instance.presetPath + newPresetFilePath))
@@ -501,7 +583,7 @@ namespace Assets.Scripts.Design
             else SavePresetFile(newPresetFilePath, plumeData);
         }
 
-        private void SavePresetFile(string presetFilePath, PlumePresetData.PlumeData plumeData)
+        private void SavePresetFile(string presetFilePath, PlumeData plumeData)
         {
             _fileStream = new FileStream(Mod.Instance.presetPath + presetFilePath, FileMode.Create);
             _xmlSerializer.Serialize(_fileStream, plumeData);
@@ -509,55 +591,100 @@ namespace Assets.Scripts.Design
             Game.Instance.Designer.DesignerUi.ShowMessage(File.Exists(Mod.Instance.presetPath + presetFilePath) ? "Plume preset saved at: " + Mod.Instance.presetPath + presetFilePath : "<color=#e7515a>Plume preset failed to save");
         }
 
-        public void ImportPreset(PlumePresetData.PlumeData plumeData)
+        public void ImportPreset(PlumeData plumeData)
         {
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColor").SetValue(plumeData.plumeMain.MainColor);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorExpanded").SetValue(plumeData.plumeMain?.ExpandedColor ?? plumeData.plumeMain.MainColor);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorTip").SetValue(plumeData.plumeMain.TipColor);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorFlame").SetValue(plumeData.plumeMain.FlameColor);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustGlobalIntensity").SetValue(plumeData.plumeMain.GloabalIntensity);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustTextureStrength").SetValue(plumeData.plumeMain.TextureIntensity);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustScale").SetValue(plumeData.plumeMain.ExhaustScale);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustOffset").SetValue(plumeData.plumeMain.ExhaustOffset);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustRimShade").SetValue(plumeData.plumeMain.RimShade);
+            selectedEngine.setExhaustColor(plumeData.plumeMain.MainColor);
+            selectedEngine.setExhaustExpandedColor(plumeData.plumeMain?.ExpandedColor ?? plumeData.plumeMain.MainColor);
+            selectedEngine.setExhaustTipColor(plumeData.plumeMain.TipColor);
+            selectedEngine.setExhaustFlameColor(plumeData.plumeMain.FlameColor);
+            selectedEngine.setExhaustShockColor(plumeData.plumeDiamonds.DiamondColor);
+            selectedEngine.setExhaustSootColor(plumeData.plumeSoot.SootColor);
+            selectedEngine.setExhaustSmokeColor(plumeData.engineSmoke.SmokeColor);
+            selectedEngine.ExhaustGlobalIntensity = plumeData.plumeMain.GloabalIntensity;
+            selectedEngine.ExhaustTextureStrength = plumeData.plumeMain.TextureIntensity;
+            selectedEngine.ExhaustScale = plumeData.plumeMain.ExhaustScale;
+            selectedEngine.SmokeOffset = plumeData.engineSmoke?.SmokeOffset ?? -1f;
+            selectedEngine.ExhaustRimShade = plumeData.plumeMain.RimShade;
+            selectedEngine.NozzleDiscStrength = plumeData.plumeMain?.DiscIntensity ?? 5f;
+            selectedEngine.ExhaustExpansionRange = new Vector2(plumeData.plumeMain.ExpansionRangeX, plumeData.plumeMain.ExpansionRangeY);
+            selectedEngine.ExhaustShockDirectionOffset = plumeData.plumeDiamonds.DiamondOffset;
+            selectedEngine.ExhaustShockIntensity = plumeData.plumeDiamonds.DiamondIntensity;
+            selectedEngine.ExhaustSootIntensity = plumeData.plumeSoot.SootIntensity;
+            selectedEngine.ExhaustSootLength = plumeData.plumeSoot.SootLength;
+            selectedEngine.HasSmoke = plumeData.engineSmoke.HasSmoke;
+            selectedEngine.SmokeSpeed = plumeData.engineSmoke.SmokeSpeed;
+
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColor").SetValue(plumeData.plumeMain.MainColor);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorExpanded").SetValue(plumeData.plumeMain?.ExpandedColor ?? plumeData.plumeMain.MainColor);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorTip").SetValue(plumeData.plumeMain.TipColor);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorFlame").SetValue(plumeData.plumeMain.FlameColor);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustGlobalIntensity").SetValue(plumeData.plumeMain.GloabalIntensity);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustTextureStrength").SetValue(plumeData.plumeMain.TextureIntensity);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustScale").SetValue(plumeData.plumeMain.ExhaustScale);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustOffset").SetValue(plumeData.plumeMain.ExhaustOffset);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustRimShade").SetValue(plumeData.plumeMain.RimShade);
             //Traverse.Create(selectedRocketEngine.Data).Field("_nozzleDiscStrength").SetValue(plumeData.plumeMain.DiscIntensity);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustExpansionRange").SetValue(new Vector2(plumeData.plumeMain.ExpansionRangeX, plumeData.plumeMain.ExpansionRangeY));
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorShock").SetValue(plumeData.plumeDiamonds.DiamondColor);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockDirectionOffset").SetValue(plumeData.plumeDiamonds.DiamondOffset);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockIntensity").SetValue(plumeData.plumeDiamonds.DiamondIntensity);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorSoot").SetValue(plumeData.plumeSoot.SootColor);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootIntensity").SetValue(plumeData.plumeSoot.SootIntensity);
-            Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootLength").SetValue(plumeData.plumeSoot.SootLength);
-            Traverse.Create(selectedRocketEngine.Data).Field("_hasSmoke").SetValue(plumeData.engineSmoke.HasSmoke);
-            Traverse.Create(selectedRocketEngine.Data).Field("_smokeColor").SetValue(plumeData.engineSmoke.SmokeColor);
-            Traverse.Create(selectedRocketEngine.Data).Field("_smokeSpeedOverride").SetValue(plumeData.engineSmoke.SmokeSpeed);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustExpansionRange").SetValue(new Vector2(plumeData.plumeMain.ExpansionRangeX, plumeData.plumeMain.ExpansionRangeY));
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorShock").SetValue(plumeData.plumeDiamonds.DiamondColor);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockDirectionOffset").SetValue(plumeData.plumeDiamonds.DiamondOffset);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustShockIntensity").SetValue(plumeData.plumeDiamonds.DiamondIntensity);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustColorSoot").SetValue(plumeData.plumeSoot.SootColor);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootIntensity").SetValue(plumeData.plumeSoot.SootIntensity);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_exhaustSootLength").SetValue(plumeData.plumeSoot.SootLength);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_hasSmoke").SetValue(plumeData.engineSmoke.HasSmoke);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_smokeColor").SetValue(plumeData.engineSmoke.SmokeColor);
+            //Traverse.Create(selectedRocketEngine.Data).Field("_smokeSpeedOverride").SetValue(plumeData.engineSmoke.SmokeSpeed);
             UpdateFlyoutDisplayValues();
             UpdateSymmetricRocketEngines();
         }
 
-        public void ResetPlume(RocketEngineData data)
+        public void ResetPlume(ExhaustSetting exhaustSetting)
         {
-            Traverse.Create(data).Field("_exhaustColor").SetValue("Default");
-            Traverse.Create(data).Field("_exhaustColorExpanded").SetValue("Default");
-            Traverse.Create(data).Field("_exhaustColorTip").SetValue("Default");
-            Traverse.Create(data).Field("_exhaustColorFlame").SetValue("Default");
-            Traverse.Create(data).Field("_exhaustGlobalIntensity").SetValue(-1);
-            Traverse.Create(data).Field("_exhaustTextureStrength").SetValue(1);
-            Traverse.Create(data).Field("_exhaustScale").SetValue(1);
-            Traverse.Create(data).Field("_exhaustOffset").SetValue(0);
-            Traverse.Create(data).Field("_exhaustRimShade").SetValue(-1);
-            Traverse.Create(data).Field("_nozzleDiscStrength").SetValue(5);
-            Traverse.Create(data).Field("_exhaustExpansionRange").SetValue(new Vector2(-1, -1));
-            Traverse.Create(data).Field("_exhaustColorShock").SetValue("Default");
-            Traverse.Create(data).Field("_exhaustShockDirectionOffset").SetValue(0);
-            Traverse.Create(data).Field("_exhaustShockIntensity").SetValue(-1);
-            Traverse.Create(data).Field("_exhaustColorSoot").SetValue("Default");
-            Traverse.Create(data).Field("_exhaustSootIntensity").SetValue(0);
-            Traverse.Create(data).Field("_exhaustSootLength").SetValue(0);
-            Traverse.Create(data).Field("_hasSmoke").SetValue(true);
-            Traverse.Create(data).Field("_smokeColor").SetValue("Default");
-            Traverse.Create(data).Field("_smokeSpeedOverride").SetValue(1);
-            data.Script.InitializeExhaust();
+            exhaustSetting.setExhaustColor("Default");
+            exhaustSetting.setExhaustExpandedColor("Default");
+            exhaustSetting.setExhaustTipColor("Default");
+            exhaustSetting.setExhaustFlameColor("Default");
+            exhaustSetting.setExhaustShockColor("Default");
+            exhaustSetting.setExhaustSootColor("Default");
+            exhaustSetting.setExhaustSmokeColor("Default");
+            exhaustSetting.ExhaustGlobalIntensity = -1;
+            exhaustSetting.ExhaustTextureStrength = 1;
+            exhaustSetting.ExhaustScale = 1;
+            exhaustSetting.ExhaustOffset = 0;
+            exhaustSetting.ExhaustRimShade = -1;
+            exhaustSetting.NozzleDiscStrength = 5;
+            exhaustSetting.ExhaustExpansionRange = new Vector2(-1, -1);
+            exhaustSetting.ExhaustShockDirectionOffset = 0;
+            exhaustSetting.ExhaustShockIntensity = -1;
+            exhaustSetting.ExhaustSootIntensity = 0;
+            exhaustSetting.ExhaustSootLength = 0;
+            exhaustSetting.HasSmoke = true;
+            exhaustSetting.SmokeSpeed = 1;
+            exhaustSetting.InitializeExhaust();
+
+            //Traverse.Create(data).Field("_exhaustColor").SetValue("Default");
+            //Traverse.Create(data).Field("_exhaustColorExpanded").SetValue("Default");
+            //Traverse.Create(data).Field("_exhaustColorTip").SetValue("Default");
+            //Traverse.Create(data).Field("_exhaustColorFlame").SetValue("Default");
+            //Traverse.Create(data).Field("_exhaustGlobalIntensity").SetValue(-1);
+            //Traverse.Create(data).Field("_exhaustTextureStrength").SetValue(1);
+            //Traverse.Create(data).Field("_exhaustScale").SetValue(1);
+            //Traverse.Create(data).Field("_exhaustOffset").SetValue(0);
+            //Traverse.Create(data).Field("_exhaustRimShade").SetValue(-1);
+            //Traverse.Create(data).Field("_nozzleDiscStrength").SetValue(5);
+            //Traverse.Create(data).Field("_exhaustExpansionRange").SetValue(new Vector2(-1, -1));
+            //Traverse.Create(data).Field("_exhaustColorShock").SetValue("Default");
+            //Traverse.Create(data).Field("_exhaustShockDirectionOffset").SetValue(0);
+            //Traverse.Create(data).Field("_exhaustShockIntensity").SetValue(-1);
+            //Traverse.Create(data).Field("_exhaustColorSoot").SetValue("Default");
+            //Traverse.Create(data).Field("_exhaustSootIntensity").SetValue(0);
+            //Traverse.Create(data).Field("_exhaustSootLength").SetValue(0);
+            //Traverse.Create(data).Field("_hasSmoke").SetValue(true);
+            //Traverse.Create(data).Field("_smokeColor").SetValue("Default");
+            //Traverse.Create(data).Field("_smokeSpeedOverride").SetValue(1);
+            //data.Script.InitializeExhaust();
         }
+
+        private bool IsPartEngineNull(IPartScript part) => part?.GetModifier<RocketEngineScript>() != null || part?.GetModifier<JetEngineScript>() != null;
     }
 }

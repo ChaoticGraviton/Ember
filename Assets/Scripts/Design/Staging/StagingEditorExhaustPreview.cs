@@ -3,6 +3,7 @@ using HarmonyLib;
 using ModApi.Craft;
 using ModApi.Craft.Parts;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Assets.Scripts.Design.Staging
 {
@@ -37,6 +38,8 @@ namespace Assets.Scripts.Design.Staging
 
         internal void RefreshExhaustPreview()
         {
+            //Debug.Log("Refreshing Exhaust Preview");
+            //Game.Instance.Designer.DesignerUi.ShowMessage("Refreshing Exhaust Preview");
             if (ModSettings.Instance.PreviewExhaustStaging.Value)
             {
                 UpdateStageExhaustPreview(false);

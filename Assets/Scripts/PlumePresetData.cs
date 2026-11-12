@@ -47,8 +47,8 @@ public class PlumePresetData
         public float ExhaustOffset;
         [XmlAttribute]
         public float RimShade;
-        //[XmlAttribute]
-        //public float DiscIntensity;
+        [XmlAttribute]
+        public float DiscIntensity;
         [XmlAttribute]
         public float ExpansionRangeX;
         [XmlAttribute]
@@ -81,6 +81,8 @@ public class PlumePresetData
         public string SmokeColor;
         [XmlAttribute]
         public float SmokeSpeed;
+        [XmlAttribute]
+        public float SmokeOffset;
     }
 
     public class PresetDetails
@@ -108,7 +110,7 @@ public class PlumePresetData
         private DetailsPropertyScript _smokeSpeed;
         private DetailsPropertyScript _globalIntenisty;
         private DetailsPropertyScript _textureIntensity;
-        //private DetailsPropertyScript _discIntensity;
+        private DetailsPropertyScript _discIntensity;
         private DetailsPropertyScript _expansionRange;
 
         public PresetDetails(ListViewDetailsScript listViewDetails)
@@ -126,7 +128,7 @@ public class PlumePresetData
             _exhaustScale = listViewDetails.Widgets.AddProperty("Exhaust Scale");
             _exhaustOffset = listViewDetails.Widgets.AddProperty("Exhaust Offset");
             _rimShade = listViewDetails.Widgets.AddProperty("RimShade");
-            //_discIntensity = listViewDetails.Widgets.AddProperty("Disc Intensity");
+            _discIntensity = listViewDetails.Widgets.AddProperty("Disc Intensity");
             _expansionRange = listViewDetails.Widgets.AddProperty("Expansion Range");
             listViewDetails.Widgets.AddSpacer();
             _shockLabel = listViewDetails.Widgets.AddGroup();
@@ -148,7 +150,7 @@ public class PlumePresetData
             _smokeSpeed = listViewDetails.Widgets.AddProperty("Smoke Speed");
         }
 
-        public void UpdateDetails(PlumePresetData.PlumeData plumeData)
+        public void UpdateDetails(PlumeData plumeData)
         {
             _description.Text = $"Preset file location: {plumeData.path}";
             _mainColor.ValueText = plumeData.plumeMain.MainColor;
@@ -169,7 +171,7 @@ public class PlumePresetData
             _smokeSpeed.ValueText = plumeData.engineSmoke.SmokeSpeed.ToString();
             _globalIntenisty.ValueText = plumeData.plumeMain.GloabalIntensity.ToString();
             _textureIntensity.ValueText = plumeData.plumeMain.TextureIntensity.ToString();
-            //_discIntensity.ValueText = plumeData.plumeMain.DiscIntensity.ToString();
+            _discIntensity.ValueText = plumeData.plumeMain.DiscIntensity.ToString();
             _expansionRange.ValueText = new Vector2(plumeData.plumeMain.ExpansionRangeX, plumeData.plumeMain.ExpansionRangeY).ToString();
         }
     }

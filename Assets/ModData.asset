@@ -16,7 +16,7 @@ MonoBehaviour:
   - Ember.dll
   _author: ChaoticGraviton
   _description: "Ember creates quality of life enhancements for editing and visualizing
-    rocket engine plumes. \n\n<b>Required Dependency:</b>\nJuno Harmony"
+    rocket engine and jet engine plumes. \n\n<b>Required Dependency:</b>\nJuno Harmony"
   _loadPriority: 100
   _name: Ember
   _otherAssets: []
@@ -28,7 +28,7 @@ MonoBehaviour:
   _steamTitle: 
   _steamVisibility: 0
   _versionMajor: 1
-  _versionMinor: 22
+  _versionMinor: 3
   _partCategories: []
   _parts: []
   _partStyleExtensions: []
